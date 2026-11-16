@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FALL_HEAVY, FALL_LIGHT } from './config';
+import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF } from './config';
 import {
   box, makeBear, makeBoar, makeBubble, makeCat, makeDeer, makeGiantHead, makeGiraffe, makeLimo, makeMascot, makePerson, makeSign,
   makeTiger, mat,
@@ -406,6 +406,60 @@ export class PhoneWalker implements Entity {
     armL.rotation.z = -0.35;
     armR.rotation.z = 0.35;
     if (crossed(p, this.d, 0.6) && Math.abs(p.x - this.x) < 0.8 && p.y < 1.2 && p.fall(FALL_LIGHT)) c.toast('"아, 죄송합니다"');
+  }
+}
+
+/** 이마 앞에 손가락으로 L자를 만들고 좌우로 뛰며 약 올리는 춤을 추는 병사. 부딪히면 넘어진다 */
+export class LDancer implements Entity {
+  private g: THREE.Group;
+  private phase = rand(0, 6);
+  private said = false;
+  x = 0;
+
+  /**
+   * 약 올리는 춤을 추는 병사를 만들어 배치한다.
+   * @author heojeehaeng(claude)
+   * @param {Ctx} c 게임 창구
+   * @param {number} d 춤추는 거리(m)
+   * @param {number} cx 춤추는 자리의 가운데 x
+   * @param {number} span 좌우로 뛰어다니는 폭(m)
+   * @param {number} beat 춤 박자의 빠르기(rad/s)
+   */
+  constructor(c: Ctx, public d: number, private cx: number, private span: number, private beat: number) {
+    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, face: 'grin' });
+    this.g.rotation.y = Math.PI;
+    // 오른손에 흰 장갑을 끼고 검지와 엄지로 L자를 만든다. 멀리서도 보이도록 손보다 크게 그린다.
+    const { armR } = this.g.userData.parts;
+    armR.add(box(0.2, 0.2, 0.16, 0xffffff, 0, -0.5, 0), box(0.09, 0.34, 0.09, 0xffffff, 0.05, -0.74, 0), box(0.26, 0.09, 0.09, 0xffffff, -0.17, -0.48, 0));
+    const bubble = makeBubble('L을 가져가');
+    bubble.position.y = 2.35;
+    // 몸이 뒤로 돌아서 있으므로 말풍선은 다시 돌려 글자가 플레이어 쪽을 향하게 한다.
+    bubble.rotation.y = Math.PI;
+    this.g.add(bubble);
+    c.add(this.g, d, true);
+  }
+
+  update(_dt: number, c: Ctx): void {
+    const p = c.player;
+    const dd = this.d - p.d;
+    this.g.visible = dd > -20 && dd < 190;
+    const t = c.time * this.beat + this.phase;
+    // 한 박자에 한 번씩 폴짝 뛰면서 좌우로 오간다.
+    this.x = Math.max(-ROAD_HALF + 0.3, Math.min(ROAD_HALF - 0.3, this.cx + Math.sin(t) * this.span));
+    const kick = Math.sin(t * 2);
+    this.g.position.set(this.x, Math.abs(kick) * 0.22, -this.d);
+    this.g.rotation.z = Math.sin(t) * 0.2;
+    const { legL, legR, armL, armR } = this.g.userData.parts;
+    legL.rotation.x = Math.max(0, kick) * 1.2;
+    legR.rotation.x = Math.max(0, -kick) * 1.2;
+    armL.rotation.set(kick * 0.9, 0, -0.5);
+    // L자를 만든 손은 이마 앞에 고정하고 박자에 맞춰 까딱인다.
+    armR.rotation.set(2.75, 0, 0.2 + kick * 0.08);
+    if (!this.said && dd < SAY_RANGE && dd > 0) {
+      this.said = true;
+      c.say('L을 가져가~');
+    }
+    if (crossed(p, this.d, 0.6) && Math.abs(p.x - this.x) < 0.85 && p.y < 1.0 && p.fall(FALL_LIGHT)) c.toast('"L을 가져가!"');
   }
 }
 

@@ -64,7 +64,7 @@ function decide(g) {
       // 붙잡는 사람은 점프로 넘는다. 반응 지연을 감안해 미리 뛴다.
       if (dd > 0 && dd < s) calm = false;
       jump = jump || (dd > s * 0.25 && dd < s * 0.45 && Math.abs(e.x - p.x) < 2.5);
-    } else if (n === 'PhoneWalker' || n === 'Mascot') {
+    } else if (n === 'PhoneWalker' || n === 'Mascot' || n === 'LDancer') {
       if (dd > 0 && dd < s) {
         calm = false;
         block(e.x, n === 'Mascot' ? 1.8 : 1.5, 6);

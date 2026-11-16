@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CHECKPOINTS, COURSE_LEN, STAGES, stagePos } from './config';
 import {
   Barrier, Bear, Cart, Crowd, Ctx, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
-  makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
+  LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
 } from './entities';
 import { box, makeCutout, makePerson, makeSign, mat, PersonOpts } from './models';
 
@@ -283,7 +283,8 @@ function dmzEntities(c: Ctx, es: Entity[], rnd: () => number): void {
 }
 
 /**
- * SS사단의 적을 배치한다. 탐조등, 고양이, 멧돼지, 휴대폰 보는 군인, 장군 차, 굳건이가 나온다.
+ * SS사단의 적을 배치한다. 탐조등, 고양이, 멧돼지, 휴대폰 보는 군인, 약 올리는 춤을 추는 병사, 장군 차, 굳건이가 나온다.
+ * 자리 수는 정해져 있고 종류만 섞어 뽑으므로, 종류를 늘려도 전체 수는 늘지 않는다.
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
@@ -295,7 +296,7 @@ function ssEntities(c: Ctx, es: Entity[], rnd: () => number): void {
   es.push(new Hint(from + 12, '탐조등 빛에 닿으면 바로 발각! 빛이 지나간 뒤 달리세요'));
   let side = 1;
   let lastFence = from;
-  const pick = deck(rnd, { light: 4, phone: 2, cat: 2, boar: 2, limo: 2, mascot: 1, fence: 1 });
+  const pick = deck(rnd, { light: 3, phone: 2, cat: 2, boar: 2, limo: 2, ldance: 2, mascot: 1, fence: 1 });
   along(from + 55, to - 34, 21, 11, rnd, (d, k) => {
     let kind = pick();
     side = -side;
@@ -314,6 +315,7 @@ function ssEntities(c: Ctx, es: Entity[], rnd: () => number): void {
       if (k > 0.5) es.push(makeBoarEnemy(c, d + 45 + PAIR_GAP, (rnd() * 2 - 1) * 3.4));
     } else if (kind === 'limo') es.push(new Limo(c, d + 90, rnd() < 0.5 ? -1.9 : 1.9));
     else if (kind === 'mascot') es.push(new Mascot(c, d + 35));
+    else if (kind === 'ldance') es.push(new LDancer(c, d + 30, (rnd() * 2 - 1) * 1.0, 1.8 + rnd() * 0.8, 2.8 + rnd() * 0.8));
     else {
       lastFence = d;
       es.push(new Barrier(c, d, 'gap', (rnd() * 2 - 1) * 2.2, 2.8));
