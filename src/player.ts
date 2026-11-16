@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
+import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
 import { Input } from './input';
 import { HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
 
@@ -133,11 +133,11 @@ export class Player {
   private updateRun(dt: number, input: Input): void {
     const grounded = this.y === 0;
     this.hiding = input.hideHeld && grounded;
-    if (!this.hiding) {
-      const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-      this.x += dir * SIDE_SPEED * dt + input.takeDrag();
-      this.x = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, this.x));
-    } else input.takeDrag();
+    // 죽은 척하는 동안에도 절반 속도로 기어서 움직인다. 멈춰 있으면 일어나는 순간 시야에 걸리는 자리가 생기기 때문이다.
+    const rate = this.hiding ? HIDE_RATE : 1;
+    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    this.x += (dir * SIDE_SPEED * dt + input.takeDrag()) * rate;
+    this.x = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, this.x));
     if (input.takeJump() && grounded && !this.hiding) {
       this.vy = JUMP_V;
       this.slideT = 0;
@@ -145,9 +145,11 @@ export class Player {
     if (input.takeSlide() && grounded) this.slideT = SLIDE_TIME;
     if (this.slideT > 0) this.slideT -= dt;
     this.cleanT += dt;
-    const target = this.hiding ? 0 : this.cleanT > BOOST_AFTER ? SPEED_MAX : SPEED_BASE;
+    const target = (this.cleanT > BOOST_AFTER ? SPEED_MAX : SPEED_BASE) * rate;
     // 부스터: 아주 잠깐 속도를 크게 올리고, 끝나면 원래 속도로 서서히 돌아온다.
     if (input.takeBoost() && !this.hiding) this.boostT = BOOST_TIME;
+    // 엎드리면 남아 있던 부스터는 바로 끊는다.
+    if (this.hiding) this.boostT = 0;
     if (this.boostT > 0) {
       this.boostT -= dt;
       this.speed = Math.max(this.speed, SPEED_BASE * BOOST_MULT);
@@ -189,6 +191,7 @@ export class Player {
     p.rotation.x += (rot - p.rotation.x) * Math.min(1, dt * 18);
     p.position.y += (h - p.position.y) * Math.min(1, dt * 18);
     this.runPhase += dt * this.speed * 1.1;
-    swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.speed > 0.5 ? 0.9 : 0);
+    // 엎드려 길 때는 팔다리를 작게 젓는다.
+    swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.hiding ? 0.45 : this.speed > 0.5 ? 0.9 : 0);
   }
 }
