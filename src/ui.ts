@@ -110,6 +110,10 @@ export class Hud {
   private toastTimer = 0;
   private sayTimer = 0;
 
+  /** 리용길의 말풍선이 떠 있는지 여부 */
+  shouting = false;
+  private shoutTimer = 0;
+  private rushing = false;
   private touch = window.matchMedia('(pointer: coarse)').matches;
   private keysKey = '';
 
@@ -127,18 +131,58 @@ export class Hud {
   }
 
   /**
-   * 대사를 자막으로 잠깐 띄운다. 새 대사가 오면 앞의 것을 바꾼다.
+   * 적의 대사를 화면 위쪽에 자막으로 잠깐 띄운다. 새 대사가 오면 앞의 것을 바꾼다.
    * @author heojeehaeng(claude)
    * @param {string} text 대사
-   * @param {boolean} hero true면 리용길의 대사로, 화면 가운데 아래에 크게 띄운다. false면 적의 대사로, 길을 가리지 않게 화면 위쪽에 작게 띄운다
    */
-  say(text: string, hero = false): void {
+  say(text: string): void {
     const el = $('taunt');
-    el.textContent = hero ? `리용길: "${text}"` : `"${text}"`;
-    el.classList.toggle('hero', hero);
+    el.textContent = `"${text}"`;
     el.classList.add('on');
     window.clearTimeout(this.sayTimer);
-    this.sayTimer = window.setTimeout(() => el.classList.remove('on'), hero ? 2400 : 1500);
+    this.sayTimer = window.setTimeout(() => el.classList.remove('on'), 1500);
+  }
+
+  /**
+   * 리용길의 대사를 머리 위 말풍선으로 잠깐 띄운다. 위치는 shoutAt으로 매 프레임 맞춘다.
+   * @author heojeehaeng(claude)
+   * @param {string} text 대사(줄바꿈 문자로 줄을 나눈다)
+   * @param {number} ms 표시 시간(ms)
+   */
+  shout(text: string, ms: number): void {
+    const el = $('shout');
+    el.firstElementChild!.textContent = text;
+    // 이미 떠 있을 때도 튀어나오는 움직임이 다시 나오도록 한 번 껐다 켠다.
+    el.classList.remove('on');
+    void el.offsetWidth;
+    el.classList.add('on');
+    this.shouting = true;
+    window.clearTimeout(this.shoutTimer);
+    this.shoutTimer = window.setTimeout(() => {
+      el.classList.remove('on');
+      this.shouting = false;
+    }, ms);
+  }
+
+  /**
+   * 리용길의 말풍선을 화면의 지정한 점 바로 위로 옮긴다.
+   * @author heojeehaeng(claude)
+   * @param {number} x 꼬리 끝이 가리킬 화면 x(px)
+   * @param {number} y 꼬리 끝이 가리킬 화면 y(px)
+   */
+  shoutAt(x: number, y: number): void {
+    $('shout').style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+  }
+
+  /**
+   * 부스터로 질주하는 동안 화면 가장자리를 흐리고 속도선을 그린다. 가운데의 리용길은 또렷하게 둔다.
+   * @author heojeehaeng(claude)
+   * @param {boolean} on 표시 여부
+   */
+  rush(on: boolean): void {
+    if (on === this.rushing) return;
+    this.rushing = on;
+    $('boost-fx').classList.toggle('on', on);
   }
 
   /**

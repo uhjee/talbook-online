@@ -8,6 +8,9 @@ import { Player } from './player';
 import { Hud, pickTitle, RunResult, saveRecord, shareCard, showFail, showRanking, showResult, validateNick } from './ui';
 import { World } from './world';
 
+/** 부스터를 쓸 때 리용길이 외치는 대사 */
+const BOOST_LINES = ['이야호!', '니용앤비용~', '너에게로 달려가는 중\n람보르기니보다 빨리 슝', '분석 중~!?', '난 널 버리지 않아~♪'];
+
 /** 문 앞 이 거리에서 멈춰 노크한다 */
 const KNOCK_AT = COURSE_LEN - 2.5;
 
@@ -45,6 +48,10 @@ class Game implements Ctx {
   private skyKey = '';
   private wasFallen = false;
   private result: RunResult | null = null;
+  private seenBoosts = 0;
+  private shoutT = -10;
+  private lastLine = -1;
+  private headPos = new THREE.Vector3();
 
   player = new Player();
   time = 0;
@@ -191,7 +198,21 @@ class Game implements Ctx {
     this.state = 'play';
     this.input.clear();
     this.input.enabled = true;
-    this.hud.say('카리나 동무 기다리라우!!', true);
+    this.hud.shout('카리나 동무 기다리라우!!', 2400);
+    // 출발 대사가 바로 덮이지 않도록 부스터 대사는 조금 뒤부터 받는다.
+    this.shoutT = this.time + 1.2;
+  }
+
+  /**
+   * 부스터를 쓸 때 외칠 대사를 무작위로 고른다. 같은 대사가 연달아 나오지 않게 한다.
+   * @author heojeehaeng(claude)
+   * @return {string} 대사
+   */
+  private pickBoostLine(): string {
+    let i = Math.floor(Math.random() * BOOST_LINES.length);
+    if (i === this.lastLine) i = (i + 1) % BOOST_LINES.length;
+    this.lastLine = i;
+    return BOOST_LINES[i];
   }
 
   /**
@@ -261,6 +282,14 @@ class Game implements Ctx {
     const p = this.player;
     this.runMs += dt * 1000;
     p.update(dt, this.input);
+    if (p.boosts !== this.seenBoosts) {
+      this.seenBoosts = p.boosts;
+      // 부스터는 연달아 쓸 수 있으므로 대사는 앞의 것이 읽힐 만큼 지난 뒤에만 바꾼다.
+      if (this.time - this.shoutT > 1.2) {
+        this.shoutT = this.time;
+        this.hud.shout(this.pickBoostLine(), 1300);
+      }
+    }
     this.inCrowd = false;
     for (const e of this.entities) {
       const dd = e.d - p.d;
@@ -399,6 +428,13 @@ class Game implements Ctx {
       this.camera.updateProjectionMatrix();
     }
     this.renderer.render(this.scene, this.camera);
+
+    this.hud.rush(this.state === 'play' && p.boosting);
+    if (this.hud.shouting) {
+      // 말풍선이 리용길의 머리 위를 따라다니도록 머리 위치를 화면 좌표로 바꾼다.
+      const v = this.headPos.set(p.x, p.y + 2.15, -p.d).project(this.camera);
+      this.hud.shoutAt((v.x * 0.5 + 0.5) * window.innerWidth, (-v.y * 0.5 + 0.5) * window.innerHeight);
+    }
 
     if (this.state === 'play' || this.state === 'knock') {
       this.hud.update(this.runMs, p.d / COURSE_LEN, stageAt(p.d).name);

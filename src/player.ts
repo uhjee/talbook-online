@@ -31,6 +31,8 @@ export class Player {
   private wear = -1;
   /** 부스터가 켜져 있는 남은 시간(초) */
   boostT = 0;
+  /** 부스터를 쓴 횟수. 대사를 띄울 때 새로 썼는지 알아보는 데 쓴다 */
+  boosts = 0;
   private runPhase = 0;
 
   /**
@@ -53,6 +55,15 @@ export class Player {
    */
   get low(): boolean {
     return this.slideT > 0 || this.hiding;
+  }
+
+  /**
+   * 부스터로 평소보다 훨씬 빠르게 달리는 중인지 반환한다. 부스터가 끝난 뒤 속도가 가라앉을 때까지 유지된다.
+   * @author heojeehaeng(claude)
+   * @return {boolean} 부스터 질주 여부
+   */
+  get boosting(): boolean {
+    return this.state === 'run' && this.speed > SPEED_MAX * 1.2;
   }
 
   /**
@@ -147,7 +158,10 @@ export class Player {
     this.cleanT += dt;
     const target = (this.cleanT > BOOST_AFTER ? SPEED_MAX : SPEED_BASE) * rate;
     // 부스터: 아주 잠깐 속도를 크게 올리고, 끝나면 원래 속도로 서서히 돌아온다.
-    if (input.takeBoost() && !this.hiding) this.boostT = BOOST_TIME;
+    if (input.takeBoost() && !this.hiding) {
+      this.boostT = BOOST_TIME;
+      this.boosts++;
+    }
     // 엎드리면 남아 있던 부스터는 바로 끊는다.
     if (this.hiding) this.boostT = 0;
     if (this.boostT > 0) {
@@ -193,5 +207,10 @@ export class Player {
     this.runPhase += dt * this.speed * 1.1;
     // 엎드려 길 때는 팔다리를 작게 젓는다.
     swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.hiding ? 0.45 : this.speed > 0.5 ? 0.9 : 0);
+    // 부스터로 질주할 때는 두 팔을 뒤로 쭉 뻗고 달린다.
+    if (this.boosting) {
+      const { armL, armR } = this.model.userData.parts;
+      armL.rotation.x = armR.rotation.x = -1.35;
+    }
   }
 }
