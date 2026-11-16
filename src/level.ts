@@ -15,12 +15,12 @@ export interface Decor {
 
 type Put = <T extends THREE.Object3D>(obj: T, x: number, d: number, ry?: number) => T;
 
-const MINER: PersonOpts = { shirt: 0x7a6a55, pants: 0x4a4038, hat: 0xd9a441 };
+const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xd9a441, face: 'calm' };
 /** 탄광을 지키는 간수 */
-const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35 };
-const PARTY: PersonOpts = { shirt: 0x2f3a4a, pants: 0x2f3a4a, hat: 0x8b1e1e };
-const PARTY_GUN: PersonOpts = { shirt: 0x5a2a2a, pants: 0x2f3a4a, hat: 0x8b1e1e };
-const NK_SOLDIER: PersonOpts = { shirt: 0x5a6b3a, pants: 0x5a6b3a, hat: 0x5a6b3a };
+const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35, face: 'angry', badge: 0xc0261c };
+const PARTY: PersonOpts = { shirt: 0x34404f, pants: 0x2b3440, hat: 0x34404f, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
+const PARTY_GUN: PersonOpts = { shirt: 0x6a3a2c, pants: 0x2b3440, hat: 0x6a3a2c, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
+const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f, face: 'angry', badge: 0xc0261c };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
 const PAIR_GAP = 50;
 /** 감시자의 시야와 다음 감시자의 시야 사이에 비워 두는 거리(m) */
@@ -467,7 +467,7 @@ function cityDecor(put: Put): void {
   put(shop.clone(), -7.2, stagePos('city', 0.8), 0.3);
   // 차가 없는 도로에서 수신호하는 교통 안내원
   for (const f of [0.28, 0.72]) {
-    const lady = put(makePerson({ shirt: 0x2f6fd1, pants: 0xffffff, hat: 0xffffff }), 6.6, stagePos('city', f), Math.PI);
+    const lady = put(makePerson({ shirt: 0x2f6fd1, pants: 0xffffff, hat: 0xffffff, face: 'smile' }), 6.6, stagePos('city', f), Math.PI);
     lady.userData.parts.armL.rotation.z = 2.4;
     lady.userData.parts.armR.rotation.x = -1.5;
   }
@@ -478,7 +478,7 @@ function cityDecor(put: Put): void {
   const fire = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), flame);
   fire.position.y = 3.38;
   lamp.add(fire);
-  for (let d = from + 25; d < to; d += 55) for (const sx of [-4.8, 4.8]) put(lamp.clone(), sx, d + (sx > 0 ? 12 : 0));
+  for (let d = from + 25; d < to; d += 55) for (const sx of [-7.2, 7.2]) put(lamp.clone(), sx, d + (sx > 0 ? 12 : 0));
   // 미사일이 풍선이라 바람이 빠지는 퍼레이드 차량
   const parade = new THREE.Group();
   parade.add(box(2.2, 1.0, 6, 0x4e5b3a, 0, 0.9, 0));
@@ -551,7 +551,7 @@ function ssDecor(c: Ctx, put: Put): Decor {
     const post = new THREE.Group();
     post.add(box(2.2, 0.2, 2.2, 0x4a5a48, 0, 2.5, 0));
     for (const px of [-1, 1]) for (const pz of [-1, 1]) post.add(box(0.15, 2.5, 0.15, 0x4a5a48, px, 1.25, pz));
-    const guard = makePerson({ shirt: 0x4b5d3a, pants: 0x4b5d3a, hat: 0x4b5d3a });
+    const guard = makePerson({ shirt: 0x4b5d3a, pants: 0x4b5d3a, hat: 0x4b5d3a, face: 'sleepy' });
     guard.rotation.set(0.25, Math.PI, 0.3);
     post.add(guard);
     const zzz = makeSign('Zzz', 0.9, 0.5, '#ffffff', '#3355aa', 0);
@@ -596,7 +596,7 @@ function ssDecor(c: Ctx, put: Put): Decor {
   door.add(box(1.6, 2.5, 0.1, 0x7a5230, 0.8, 1.25, 0), box(0.1, 0.1, 0.12, 0xd9c36a, 1.4, 1.2, 0.08));
   c.addProp(door, COURSE_LEN);
 
-  const greeter = makePerson({ shirt: 0xf2f2f2, pants: 0x4b5d3a });
+  const greeter = makePerson({ shirt: 0xf2f2f2, pants: 0x4b5d3a, face: 'smile' });
   greeter.rotation.y = Math.PI;
   greeter.position.set(0, 0, z - 0.7);
   // 라면 그릇

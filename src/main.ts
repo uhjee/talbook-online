@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHECKPOINTS, COURSE_LEN, stageAt } from './config';
 import { Ctx, Entity } from './entities';
+import { Fx } from './fx';
 import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
 import { Player } from './player';
@@ -14,8 +15,8 @@ class Game implements Ctx {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
-  private hemi = new THREE.HemisphereLight(0xffffff, 0x777777, 2.4);
-  private sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  private hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.9);
+  private sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
   private fog = new THREE.Fog(0x000000, 10, 100);
   private world: World;
   private decor: Decor;
@@ -38,6 +39,11 @@ class Game implements Ctx {
   /** 이번 프레임에 발각되었으면 사유 문구가 들어 있다. 적 갱신이 끝난 뒤 처리한다 */
   private arrestMsg: string | null = null;
   private fov = 62;
+  private fx: Fx;
+  private skyCanvas = document.createElement('canvas');
+  private skyTex: THREE.CanvasTexture;
+  private skyKey = '';
+  private wasFallen = false;
   private result: RunResult | null = null;
 
   player = new Player();
@@ -53,7 +59,7 @@ class Game implements Ctx {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: window.devicePixelRatio < 2, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.scene.fog = this.fog;
-    this.sun.position.set(4, 10, 6);
+    this.sun.position.set(5, 9, 7);
     this.scene.add(this.hemi, this.sun, this.player.group);
     this.shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.5, 16),
@@ -61,6 +67,12 @@ class Game implements Ctx {
     );
     this.shadow.rotation.x = -Math.PI / 2;
     this.scene.add(this.shadow);
+    this.skyCanvas.width = 2;
+    this.skyCanvas.height = 128;
+    this.skyTex = new THREE.CanvasTexture(this.skyCanvas);
+    this.skyTex.colorSpace = THREE.SRGBColorSpace;
+    this.scene.background = this.skyTex;
+    this.fx = new Fx(this.scene);
     this.world = new World(this.scene);
     this.decor = buildDecor(this);
     this.entities = buildEntities(this, Game.newSeed());
@@ -179,6 +191,27 @@ class Game implements Ctx {
     this.state = 'play';
     this.input.clear();
     this.input.enabled = true;
+  }
+
+  /**
+   * 하늘을 위에서 지평선까지 이어지는 그라데이션으로 칠한다. 색이 바뀌었을 때만 다시 그린다.
+   * @author heojeehaeng(claude)
+   * @param {THREE.Color} top 하늘 꼭대기 색
+   * @param {THREE.Color} horizon 지평선 색
+   */
+  private paintSky(top: THREE.Color, horizon: THREE.Color): void {
+    const key = `${top.getHexString()}-${horizon.getHexString()}`;
+    if (key === this.skyKey) return;
+    this.skyKey = key;
+    const g = this.skyCanvas.getContext('2d')!;
+    const grad = g.createLinearGradient(0, 0, 0, 128);
+    grad.addColorStop(0, `#${top.getHexString()}`);
+    // 화면 가운데 조금 위가 지평선이므로 그 아래는 지평선 색으로 채운다.
+    grad.addColorStop(0.5, `#${horizon.getHexString()}`);
+    grad.addColorStop(1, `#${horizon.getHexString()}`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 2, 128);
+    this.skyTex.needsUpdate = true;
   }
 
   private resize(): void {
@@ -314,13 +347,22 @@ class Game implements Ctx {
     const p = this.player;
     this.world.update(p.d);
     const env = this.world.envAt(p.d);
-    this.scene.background = env.sky;
+    this.paintSky(env.top, env.sky);
     this.fog.color.copy(env.sky);
     this.fog.near = env.fogNear;
     this.fog.far = env.fogFar;
-    this.hemi.intensity = 2.4 * env.light;
-    this.sun.intensity = 1.6 * env.light;
+    this.hemi.intensity = 1.9 * env.light;
+    this.sun.intensity = 2.2 * env.light;
     this.shadow.position.set(p.x, 0.03, -p.d);
+    // 높이 뛸수록 그림자를 작고 옅게 그린다.
+    this.shadow.scale.setScalar(Math.max(0.45, 1 - p.y * 0.18));
+
+    const dust = stageAt(p.d).road;
+    if (this.state === 'play' && p.state === 'run' && p.y === 0) this.fx.trail(dt, p.x, -p.d, p.speed, dust);
+    const fallen = p.state === 'fall';
+    if (fallen && !this.wasFallen) this.fx.burst(p.x, -p.d, dust);
+    this.wasFallen = fallen;
+    this.fx.update(dt);
 
     this.shakeT = Math.max(0, this.shakeT - dt);
     const sx = (Math.random() - 0.5) * this.shakeT;

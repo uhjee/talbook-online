@@ -364,7 +364,7 @@ export class PhoneWalker implements Entity {
    * @param {number} sway 좌우로 비틀거리는 폭(m)
    */
   constructor(c: Ctx, public d: number, private sway: number) {
-    this.g = makePerson({ shirt: 0x4b5d3a, pants: 0x4b5d3a, hat: 0x4b5d3a });
+    this.g = makePerson({ shirt: 0x4b5d3a, pants: 0x435334, hat: 0x4b5d3a, face: 'smile' });
     this.g.rotation.y = Math.PI;
     // 얼굴 앞에 든 큼직한 휴대폰. 플레이어 쪽으로는 뒷면과 카메라 렌즈가 보인다.
     const phone = new THREE.Group();
@@ -427,7 +427,7 @@ export class Crowd implements Entity {
     this.d = (d0 + d1) / 2;
     for (let d = d0 + 1; d < d1; d += 3.2) {
       for (const ox of [-1.5, 0, 1.5]) {
-        const p = makePerson({ shirt: 0x6b7a4a, pants: 0x6b7a4a, hat: 0x6b7a4a });
+        const p = makePerson({ shirt: 0x6b7a4a, pants: 0x5d6b40, hat: 0x6b7a4a, back: true });
         p.position.set(x + ox, 0.08, -d);
         this.people.push(p);
         c.add(p, d);
@@ -470,7 +470,7 @@ export class Watcher implements Entity {
     cone.position.y = 0.05;
     this.pivot.add(cone);
     this.pivot.position.set(this.wx, 0, -d);
-    this.man = makePerson({ shirt: 0x3d4a3a, pants: 0x3d4a3a, hat: 0x8b1e1e });
+    this.man = makePerson({ shirt: 0x3d4a3a, pants: 0x333f31, hat: 0x8b1e1e, face: 'angry', armband: 0xc0261c });
     this.man.position.set(this.wx, 0, -d);
     c.add(this.pivot, d);
     c.add(this.man, d);

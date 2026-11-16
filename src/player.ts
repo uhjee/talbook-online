@@ -35,7 +35,7 @@ export class Player {
    * @author heojeehaeng(claude)
    */
   constructor() {
-    this.model = makePerson({ shirt: 0x4a5d7a, pants: 0x3a3a3a, hat: 0x4a5d7a });
+    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true });
     // 넘어짐과 엎드리기를 몸 가운데 기준으로 돌리기 위해 관절을 허리 높이에 둔다.
     this.model.position.y = -0.9;
     this.pivot.position.y = 0.9;
@@ -173,6 +173,10 @@ export class Player {
       rot = 1.2;
       h = 0.35;
     }
+    // 달릴 때는 몸을 앞으로 숙이고, 부스터를 쓰면 더 깊이 숙인다.
+    if (rot === 0 && this.speed > 2) rot = this.boostT > 0 ? -0.5 : -0.2;
+    // 발을 디딜 때마다 몸이 살짝 오르내린다.
+    if (h === 0.9 && this.y === 0) h += Math.abs(Math.sin(this.runPhase)) * 0.06;
     p.rotation.x += (rot - p.rotation.x) * Math.min(1, dt * 18);
     p.position.y += (h - p.position.y) * Math.min(1, dt * 18);
     this.runPhase += dt * this.speed * 1.1;

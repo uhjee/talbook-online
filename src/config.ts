@@ -26,17 +26,20 @@ export interface Stage {
   to: number;
   road: number;
   ground: number;
+  /** 지평선과 안개의 색 */
   sky: number;
+  /** 하늘 꼭대기의 색 */
+  skyTop: number;
   fogNear: number;
   fogFar: number;
   light: number;
 }
 
 export const STAGES: Stage[] = [
-  { id: 'mine', name: '아오지 탄광', from: 0, to: 750, road: 0x5a4636, ground: 0x2b2018, sky: 0x0d0a08, fogNear: 14, fogFar: 95, light: 0.75 },
-  { id: 'city', name: '북한 시내', from: 750, to: 1950, road: 0x8f8f8f, ground: 0xa9a59c, sky: 0xc5cbd3, fogNear: 50, fogFar: 200, light: 1.0 },
-  { id: 'dmz', name: '국경과 DMZ', from: 1950, to: 3600, road: 0x7a6a44, ground: 0x4f7d3a, sky: 0xa8d8f0, fogNear: 60, fogFar: 210, light: 1.0 },
-  { id: 'ss', name: 'SS사단', from: 3600, to: 4500, road: 0x6b7280, ground: 0x3d4f45, sky: 0x2f4470, fogNear: 40, fogFar: 160, light: 0.8 },
+  { id: 'mine', name: '아오지 탄광', from: 0, to: 750, road: 0x5a4636, ground: 0x2b2018, sky: 0x0d0a08, skyTop: 0x050403, fogNear: 14, fogFar: 95, light: 0.75 },
+  { id: 'city', name: '북한 시내', from: 750, to: 1950, road: 0x8f8f8f, ground: 0xa9a59c, sky: 0xd4d9df, skyTop: 0x7f99bd, fogNear: 50, fogFar: 200, light: 1.0 },
+  { id: 'dmz', name: '국경과 DMZ', from: 1950, to: 3600, road: 0x7a6a44, ground: 0x4f7d3a, sky: 0xbfe4f5, skyTop: 0x3f8fe0, fogNear: 60, fogFar: 210, light: 1.0 },
+  { id: 'ss', name: 'SS사단', from: 3600, to: 4500, road: 0x6b7280, ground: 0x3d4f45, sky: 0x4a5f8f, skyTop: 0x0b1433, fogNear: 40, fogFar: 160, light: 0.8 },
 ];
 
 /** 코스 전체 길이(m) */

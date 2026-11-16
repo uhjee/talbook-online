@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 
 const mats = new Map<number, THREE.MeshLambertMaterial>();
+const toons = new Map<number, THREE.MeshToonMaterial>();
+const flats = new Map<number, THREE.MeshBasicMaterial>();
+let ramp: THREE.DataTexture | null = null;
 
 /**
  * 색상별 재질을 재사용하여 반환한다.
@@ -18,6 +21,42 @@ export function mat(color: number): THREE.MeshLambertMaterial {
 }
 
 /**
+ * 만화처럼 명암이 단계로 나뉘는 재질을 색상별로 재사용하여 반환한다. 캐릭터와 동물에 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {number} color 16진수 색상
+ * @return {THREE.MeshToonMaterial} 재질
+ */
+export function toon(color: number): THREE.MeshToonMaterial {
+  let m = toons.get(color);
+  if (!m) {
+    if (!ramp) {
+      // 어두운 면, 중간 면, 밝은 면 세 단계로 나눈다.
+      ramp = new THREE.DataTexture(new Uint8Array([120, 190, 255]), 3, 1, THREE.RedFormat);
+      ramp.minFilter = ramp.magFilter = THREE.NearestFilter;
+      ramp.needsUpdate = true;
+    }
+    m = new THREE.MeshToonMaterial({ color, gradientMap: ramp });
+    toons.set(color, m);
+  }
+  return m;
+}
+
+/**
+ * 조명의 영향을 받지 않는 재질을 색상별로 재사용하여 반환한다. 눈의 반짝임처럼 항상 또렷해야 하는 곳에 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {number} color 16진수 색상
+ * @return {THREE.MeshBasicMaterial} 재질
+ */
+function flat(color: number): THREE.MeshBasicMaterial {
+  let m = flats.get(color);
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ color });
+    flats.set(color, m);
+  }
+  return m;
+}
+
+/**
  * 여러 물체가 함께 쓰는 재질인지 확인한다. 함께 쓰는 재질은 물체를 지울 때 해제하면 안 된다.
  * @author heojeehaeng(claude)
  * @param {THREE.Material} material 확인할 재질
@@ -25,28 +64,83 @@ export function mat(color: number): THREE.MeshLambertMaterial {
  */
 export function isSharedMat(material: THREE.Material): boolean {
   if (material.userData.shared) return true;
-  for (const v of mats.values()) if (v === material) return true;
+  for (const map of [mats, toons, flats]) for (const v of map.values()) if (v === material) return true;
   return false;
 }
 
-const bubbleMats = new Map<string, THREE.MeshBasicMaterial>();
+/**
+ * 여러 물체가 함께 쓰는 도형으로 표시한다. 표시한 도형은 물체를 지울 때 해제하지 않는다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.BufferGeometry} geo 도형
+ * @return {THREE.BufferGeometry} 표시한 도형
+ */
+function shared<T extends THREE.BufferGeometry>(geo: T): T {
+  geo.userData.shared = true;
+  return geo;
+}
+
+/** 캐릭터와 동물이 함께 쓰는 기본 도형 */
+const G = {
+  ball: shared(new THREE.SphereGeometry(1, 18, 14)),
+  ballLow: shared(new THREE.SphereGeometry(1, 10, 8)),
+  dome: shared(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
+  pill: shared(new THREE.CapsuleGeometry(1, 2, 5, 12)),
+  tube: shared(new THREE.CylinderGeometry(1, 1, 1, 14)),
+  cone: shared(new THREE.ConeGeometry(1, 1, 6)),
+  cube: shared(new THREE.BoxGeometry(1, 1, 1)),
+  disc: shared(new THREE.CircleGeometry(1, 18)),
+};
+
+const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false });
+shadowMat.userData.shared = true;
 
 /**
- * 머리 위에 띄우는 말풍선을 만든다. 같은 대사는 재질과 글자 그림을 함께 써서, 적을 다시 배치할 때마다 새로 그리지 않는다.
+ * 함께 쓰는 도형으로 만화풍 부품을 만든다.
  * @author heojeehaeng(claude)
- * @param {string} text 말풍선에 넣을 대사
- * @return {THREE.Mesh} 말풍선. 글자는 +z 방향을 향한다
+ * @param {THREE.BufferGeometry} geo 함께 쓰는 도형
+ * @param {number} color 색상
+ * @param {number[]} pos 위치 [x, y, z]
+ * @param {number[]} scale 크기 [x, y, z]
+ * @return {THREE.Mesh} 부품
  */
-export function makeBubble(text: string): THREE.Mesh {
-  const w = Math.min(7.4, 0.5 * text.length + 1.0);
-  const h = 1.08;
-  let material = bubbleMats.get(text);
-  if (!material) {
-    material = new THREE.MeshBasicMaterial({ map: textTexture(text, Math.round((256 * w) / h), 256, '#ffffff', '#b3261e'), side: THREE.DoubleSide });
-    material.userData.shared = true;
-    bubbleMats.set(text, material);
-  }
-  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+function part(geo: THREE.BufferGeometry, color: number, pos: number[], scale: number[]): THREE.Mesh {
+  const m = new THREE.Mesh(geo, toon(color));
+  m.position.set(pos[0], pos[1], pos[2]);
+  m.scale.set(scale[0], scale[1], scale[2]);
+  return m;
+}
+
+/**
+ * 양 끝이 둥근 막대를 만든다. 팔다리와 몸통에 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {number} color 색상
+ * @param {number} r 반지름
+ * @param {number} len 전체 길이
+ * @param {number[]} pos 중심 위치 [x, y, z]
+ * @param {string} axis 막대가 놓이는 방향. 'y'가 세로다
+ * @return {THREE.Mesh} 막대
+ */
+function pill(color: number, r: number, len: number, pos: number[], axis: 'x' | 'y' | 'z' = 'y'): THREE.Mesh {
+  // 기본 도형은 반지름 1, 전체 길이 4이므로 반지름과 길이를 따로 맞춘다.
+  const m = part(G.pill, color, pos, [r, len / 4, r]);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  else if (axis === 'z') m.rotation.x = Math.PI / 2;
+  return m;
+}
+
+/**
+ * 발밑에 까는 둥근 그림자를 만든다.
+ * @author heojeehaeng(claude)
+ * @param {number} rx 좌우 반지름
+ * @param {number} rz 앞뒤 반지름
+ * @return {THREE.Mesh} 그림자
+ */
+function blob(rx: number, rz: number): THREE.Mesh {
+  const m = new THREE.Mesh(G.disc, shadowMat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = 0.025;
+  m.scale.set(rx, rz, 1);
+  return m;
 }
 
 /**
@@ -127,6 +221,26 @@ export function makeSign(text: string, w: number, h: number, bg = '#f4f0e6', fg 
   return g;
 }
 
+const bubbleMats = new Map<string, THREE.MeshBasicMaterial>();
+
+/**
+ * 머리 위에 띄우는 말풍선을 만든다. 같은 대사는 재질과 글자 그림을 함께 써서, 적을 다시 배치할 때마다 새로 그리지 않는다.
+ * @author heojeehaeng(claude)
+ * @param {string} text 말풍선에 넣을 대사
+ * @return {THREE.Mesh} 말풍선. 글자는 +z 방향을 향한다
+ */
+export function makeBubble(text: string): THREE.Mesh {
+  const w = Math.min(7.4, 0.5 * text.length + 1.0);
+  const h = 1.08;
+  let material = bubbleMats.get(text);
+  if (!material) {
+    material = new THREE.MeshBasicMaterial({ map: textTexture(text, Math.round((256 * w) / h), 256, '#ffffff', '#b3261e'), side: THREE.DoubleSide });
+    material.userData.shared = true;
+    bubbleMats.set(text, material);
+  }
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+}
+
 /**
  * 캔버스에 그린 그림을 얇은 입간판으로 만든다. 뒤에 받침 각목을 붙인다.
  * @author heojeehaeng(claude)
@@ -157,6 +271,8 @@ export function makeCutout(draw: (g: CanvasRenderingContext2D, w: number, h: num
   return g;
 }
 
+export type Face = 'calm' | 'angry' | 'smile' | 'grin' | 'sleepy';
+
 export interface PersonOpts {
   shirt: number;
   pants: number;
@@ -164,41 +280,126 @@ export interface PersonOpts {
   hat?: number;
   /** 모자 대신 냄비를 쓴다 */
   pot?: boolean;
+  /** 표정. 기본은 차분한 얼굴이다 */
+  face?: Face;
+  /** 머리카락 색 */
+  hair?: number;
+  /** 왼팔에 두르는 완장 색 */
+  armband?: number;
+  /** 모자 앞에 다는 표식 색 */
+  badge?: number;
+  /** 등에 매는 보따리 */
+  pack?: boolean;
+  /** 목에 두르는 수건 색 */
+  scarf?: number;
+  /** true면 얼굴 부품을 만들지 않는다. 뒷모습만 보이는 행진 대열처럼 수가 많을 때 쓴다 */
+  back?: boolean;
+  /** true면 발밑 그림자를 만들지 않는다. 그림자를 따로 그리는 주인공에 쓴다 */
+  noShadow?: boolean;
+}
+
+/**
+ * 얼굴 부품(눈, 눈썹, 입, 볼)을 표정에 맞춰 붙인다. 얼굴은 -z 방향이다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Group} g 사람 모델
+ * @param {Face} face 표정
+ * @param {number} skin 피부색
+ */
+function addFace(g: THREE.Group, face: Face, skin: number): void {
+  const dark = 0x1d1a18;
+  for (const sx of [-1, 1]) {
+    const x = sx * 0.155;
+    // 졸린 얼굴은 눈을 감은 가는 선으로 그린다.
+    const eye = part(G.ballLow, dark, [x, 1.53, -0.385], [0.062, face === 'sleepy' ? 0.014 : 0.078, 0.03]);
+    g.add(eye);
+    if (face !== 'sleepy') {
+      const shine = new THREE.Mesh(G.ballLow, flat(0xffffff));
+      shine.position.set(x - 0.022, 1.565, -0.415);
+      shine.scale.setScalar(0.02);
+      g.add(shine);
+    }
+    const brow = part(G.cube, dark, [x, 1.665, -0.385], [0.15, 0.034, 0.03]);
+    // 안쪽 끝이 내려가면 화난 얼굴, 바깥 끝이 내려가면 순한 얼굴이 된다.
+    brow.rotation.z = sx * (face === 'angry' ? 0.42 : face === 'sleepy' ? -0.25 : face === 'calm' ? 0 : -0.12);
+    if (face === 'angry') brow.position.y = 1.64;
+    g.add(brow);
+    if (face !== 'angry') g.add(part(G.ballLow, 0xf2a39c, [sx * 0.27, 1.41, -0.335], [0.06, 0.04, 0.02]));
+  }
+  g.add(part(G.ballLow, darken(skin), [0, 1.455, -0.425], [0.032, 0.03, 0.03]));
+  if (face === 'angry') g.add(part(G.ballLow, 0x7a1f1a, [0, 1.335, -0.385], [0.095, 0.07, 0.03]), part(G.cube, 0xffffff, [0, 1.365, -0.41], [0.12, 0.022, 0.02]));
+  else if (face === 'grin') g.add(part(G.ballLow, 0xb5362e, [0, 1.335, -0.385], [0.15, 0.085, 0.03]), part(G.cube, 0xffffff, [0, 1.372, -0.41], [0.2, 0.03, 0.02]));
+  else if (face === 'smile') g.add(part(G.ballLow, 0x7a2b22, [0, 1.345, -0.39], [0.075, 0.035, 0.02]));
+  else if (face === 'sleepy') g.add(part(G.ballLow, 0x7a2b22, [0, 1.335, -0.395], [0.035, 0.04, 0.02]));
+  else g.add(part(G.cube, 0x7a2b22, [0, 1.345, -0.4], [0.1, 0.022, 0.02]));
+}
+
+/**
+ * 색을 조금 어둡게 만든다. 코나 주름처럼 같은 계열의 그늘진 색이 필요할 때 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {number} color 원래 색
+ * @return {number} 어두워진 색
+ */
+function darken(color: number): number {
+  const r = ((color >> 16) & 255) * 0.82;
+  const g = ((color >> 8) & 255) * 0.78;
+  const b = (color & 255) * 0.76;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
 /**
  * 머리가 큰 2.5등신 사람 모델을 만든다. 기본 방향은 -z(달리는 방향)이다.
  * @author heojeehaeng(claude)
- * @param {PersonOpts} o 옷과 모자 색상
+ * @param {PersonOpts} o 옷, 모자, 표정, 소품
  * @return {THREE.Group} 사람 모델. userData.parts에 팔다리 관절이 들어 있다
  */
 export function makePerson(o: PersonOpts): THREE.Group {
   const g = new THREE.Group();
-  const skin = o.skin ?? 0xf1c9a5;
-  const limb = (color: number, x: number, y: number, len: number, w: number) => {
+  const skin = o.skin ?? 0xf3cfae;
+  const hair = o.hair ?? 0x1c1612;
+  const limb = (x: number, y: number, arm: boolean) => {
     const pivot = new THREE.Group();
     pivot.position.set(x, y, 0);
-    pivot.add(box(w, len, w + 0.02, color, 0, -len / 2, 0));
+    pivot.add(pill(arm ? o.shirt : o.pants, arm ? 0.078 : 0.1, 0.44, [0, -0.2, 0]));
+    // 수가 많은 행진 대열은 손과 신발 같은 작은 부품을 빼서 그리는 양을 줄인다.
+    if (!o.back) pivot.add(arm ? part(G.ballLow, skin, [0, -0.47, 0], [0.085, 0.085, 0.085]) : part(G.ball, 0x2a2420, [0, -0.45, -0.045], [0.115, 0.075, 0.17]));
     g.add(pivot);
     return pivot;
   };
-  const legL = limb(o.pants, -0.14, 0.5, 0.5, 0.2);
-  const legR = limb(o.pants, 0.14, 0.5, 0.5, 0.2);
-  g.add(box(0.56, 0.6, 0.34, o.shirt, 0, 0.8, 0));
-  const armL = limb(o.shirt, -0.37, 1.05, 0.5, 0.15);
-  const armR = limb(o.shirt, 0.37, 1.05, 0.5, 0.15);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), mat(skin));
-  head.position.y = 1.5;
+  const legL = limb(-0.135, 0.5, false);
+  const legR = limb(0.135, 0.5, false);
+  // 몸통은 앞뒤로 납작한 둥근 막대, 그 아래에 허리띠를 두른다.
+  const torso = pill(o.shirt, 0.29, 0.74, [0, 0.83, 0]);
+  torso.scale.z = 0.215;
+  g.add(torso);
+  if (!o.back) g.add(part(G.tube, darken(o.pants), [0, 0.6, 0], [0.3, 0.07, 0.225]));
+  const armL = limb(-0.385, 1.07, true);
+  const armR = limb(0.385, 1.07, true);
+  const head = part(G.ball, skin, [0, 1.5, 0], [0.42, 0.42, 0.42]);
   g.add(head);
-  g.add(box(0.08, 0.1, 0.05, 0x222222, -0.15, 1.55, -0.4));
-  g.add(box(0.08, 0.1, 0.05, 0x222222, 0.15, 1.55, -0.4));
-  if (o.pot) {
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.34, 0.3, 12), mat(0x9aa0a6));
-    pot.position.y = 1.9;
-    g.add(pot, box(0.3, 0.05, 0.08, 0x9aa0a6, 0.5, 1.95, 0));
-  } else if (o.hat !== undefined) {
-    g.add(box(0.7, 0.16, 0.7, o.hat, 0, 1.9, 0), box(0.5, 0.06, 0.3, o.hat, 0, 1.85, -0.45));
+  if (!o.back) {
+    g.add(part(G.ballLow, skin, [-0.41, 1.47, 0], [0.07, 0.09, 0.06]), part(G.ballLow, skin, [0.41, 1.47, 0], [0.07, 0.09, 0.06]));
+    addFace(g, o.face ?? 'calm', skin);
   }
+  // 뒤통수를 덮는 머리카락. 앞쪽을 들어 올려 이마가 드러나게 한다.
+  const cap = part(G.dome, hair, [0, 1.52, 0.01], [0.44, 0.44, 0.44]);
+  cap.rotation.x = 0.42;
+  g.add(cap);
+  if (o.pot) {
+    g.add(part(G.tube, 0x9aa0a6, [0, 1.93, 0], [0.4, 0.3, 0.4]), part(G.cube, 0x9aa0a6, [0.52, 1.98, 0], [0.3, 0.05, 0.08]));
+  } else if (o.hat !== undefined) {
+    g.add(part(G.tube, o.hat, [0, 1.9, 0], [0.4, 0.2, 0.4]));
+    if (!o.back) g.add(part(G.tube, darken(o.hat), [0, 1.81, 0], [0.43, 0.05, 0.43]), part(G.cube, darken(o.hat), [0, 1.8, -0.46], [0.46, 0.035, 0.22]));
+    if (o.badge !== undefined) g.add(part(G.ballLow, o.badge, [0, 1.9, -0.4], [0.07, 0.07, 0.03]));
+  }
+  if (o.armband !== undefined) armL.add(part(G.tube, o.armband, [0, -0.13, 0], [0.095, 0.1, 0.095]));
+  if (o.scarf !== undefined) g.add(part(G.tube, o.scarf, [0, 1.17, 0], [0.26, 0.09, 0.22]), part(G.cube, o.scarf, [0.1, 1.02, 0.2], [0.11, 0.3, 0.04]));
+  if (o.pack) {
+    g.add(part(G.ball, 0xc9b28a, [0, 0.92, 0.3], [0.27, 0.24, 0.2]), part(G.ballLow, 0xb39a70, [0, 1.17, 0.3], [0.09, 0.07, 0.08]));
+    const strap = part(G.cube, 0x6b5a3e, [0, 0.9, -0.01], [0.07, 0.72, 0.5]);
+    strap.rotation.z = 0.5;
+    g.add(strap);
+  }
+  if (!o.noShadow && !o.back) g.add(blob(0.42, 0.36));
   g.userData.parts = { legL, legR, armL, armR, head };
   return g;
 }
@@ -220,65 +421,52 @@ export function swingPerson(p: THREE.Group, phase: number, amp: number): void {
 }
 
 /**
- * 곰 모델을 만든다. 건빵 봉지를 들고 있다.
+ * 동물의 눈을 한 쌍 붙인다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 곰 모델
+ * @param {THREE.Group} g 동물 모델
+ * @param {number[]} at 두 눈 사이 가운데 위치 [x, y, z]
+ * @param {string} axis 얼굴이 향하는 방향. 눈은 이 방향의 수직으로 벌어진다
+ * @param {number} gap 두 눈 사이 거리의 절반
+ * @param {number} r 눈 크기
+ */
+function addEyes(g: THREE.Group, at: number[], axis: 'x' | 'z', gap: number, r: number): void {
+  for (const s of [-1, 1]) {
+    const pos = axis === 'x' ? [at[0], at[1], at[2] + s * gap] : [at[0] + s * gap, at[1], at[2]];
+    g.add(part(G.ballLow, 0x151515, pos, [r, r * 1.2, r]));
+    const shine = new THREE.Mesh(G.ballLow, flat(0xffffff));
+    shine.position.set(pos[0] + (axis === 'x' ? r * 0.7 : 0), pos[1] + r * 0.5, pos[2] + (axis === 'z' ? r * 0.7 : 0));
+    shine.scale.setScalar(r * 0.32);
+    g.add(shine);
+  }
+}
+
+/**
+ * 곰 모델을 만든다. 건빵 봉지를 들고 있고, 베어허그를 하려고 앞발을 벌린다. 얼굴은 +z 방향이다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.Group} 곰 모델. userData.arms에 벌린 앞발이 들어 있다
  */
 export function makeBear(): THREE.Group {
   const g = new THREE.Group();
-  g.add(box(1.5, 1.3, 1.2, 0x6b4423, 0, 0.75, 0));
-  g.add(box(0.9, 0.8, 0.8, 0x6b4423, 0, 1.75, 0.15));
-  g.add(box(0.4, 0.3, 0.3, 0xd9b38c, 0, 1.6, 0.6));
-  g.add(box(0.25, 0.25, 0.15, 0x6b4423, -0.35, 2.2, 0.15), box(0.25, 0.25, 0.15, 0x6b4423, 0.35, 2.2, 0.15));
-  g.add(box(0.1, 0.1, 0.05, 0x111111, -0.2, 1.9, 0.56), box(0.1, 0.1, 0.05, 0x111111, 0.2, 1.9, 0.56));
-  g.add(box(0.5, 0.6, 0.2, 0xd8c690, 0.75, 0.9, 0.6));
-  // 베어허그를 하려고 양옆으로 벌린 앞발
+  const fur = 0x7a4a26;
+  const pale = 0xd9b38c;
+  g.add(part(G.ball, fur, [0, 0.85, 0], [0.78, 0.82, 0.62]), part(G.ball, pale, [0, 0.8, 0.36], [0.46, 0.52, 0.32]));
+  g.add(pill(fur, 0.2, 0.6, [-0.38, 0.3, 0]), pill(fur, 0.2, 0.6, [0.38, 0.3, 0]));
+  g.add(part(G.ball, fur, [0, 1.78, 0.12], [0.5, 0.46, 0.46]), part(G.ball, pale, [0, 1.68, 0.5], [0.24, 0.19, 0.2]));
+  g.add(part(G.ballLow, 0x151515, [0, 1.74, 0.7], [0.08, 0.06, 0.05]));
+  for (const s of [-1, 1]) g.add(part(G.ballLow, fur, [s * 0.38, 2.14, 0.08], [0.17, 0.17, 0.1]), part(G.ballLow, pale, [s * 0.38, 2.13, 0.14], [0.09, 0.09, 0.06]));
+  addEyes(g, [0, 1.88, 0.52], 'z', 0.2, 0.06);
+  // 건빵 봉지
+  g.add(part(G.cube, 0xd8c690, [0.55, 0.95, 0.5], [0.42, 0.5, 0.16]), part(G.cube, 0xb8412e, [0.55, 1.0, 0.59], [0.3, 0.14, 0.02]));
   const arms = new THREE.Group();
-  arms.add(box(1.3, 0.4, 0.45, 0x6b4423, -1.35, 1.25, 0.2), box(1.3, 0.4, 0.45, 0x6b4423, 1.35, 1.25, 0.2));
-  arms.add(box(0.35, 0.5, 0.5, 0x4a2f18, -2.05, 1.25, 0.35), box(0.35, 0.5, 0.5, 0x4a2f18, 2.05, 1.25, 0.35));
-  g.add(arms);
-  g.userData.arms = arms;
-  return g;
-}
-
-/**
- * 고양이 모델을 만든다. 머리는 +x 방향이다.
- * @author heojeehaeng(claude)
- * @return {THREE.Group} 고양이 모델
- */
-export function makeCat(): THREE.Group {
-  const g = new THREE.Group();
-  const col = 0x8f9399;
-  g.add(box(0.8, 0.32, 0.3, col, 0, 0.36, 0), box(0.34, 0.32, 0.34, col, 0.5, 0.52, 0));
-  g.add(box(0.08, 0.14, 0.08, col, 0.42, 0.74, -0.1), box(0.08, 0.14, 0.08, col, 0.42, 0.74, 0.1));
-  for (const lx of [-0.28, 0.28]) for (const lz of [-0.1, 0.1]) g.add(box(0.08, 0.22, 0.08, col, lx, 0.11, lz));
-  const tail = box(0.07, 0.5, 0.07, col, -0.45, 0.65, 0);
-  tail.rotation.z = 0.4;
-  g.add(tail);
-  return g;
-}
-
-/**
- * 고라니 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
- * @author heojeehaeng(claude)
- * @return {THREE.Group} 고라니 모델
- */
-export function makeDeer(): THREE.Group {
-  const g = new THREE.Group();
-  const col = 0x9c7a4d;
-  g.add(box(0.45, 0.55, 1.1, col, 0, 0.85, 0), box(0.3, 0.35, 0.4, col, 0, 1.25, 0.65));
-  g.add(box(0.06, 0.25, 0.06, col, -0.12, 1.52, 0.6), box(0.06, 0.25, 0.06, col, 0.12, 1.52, 0.6));
-  // 고라니는 뿔 대신 송곳니가 있다.
-  g.add(box(0.04, 0.14, 0.04, 0xffffff, -0.08, 1.05, 0.84), box(0.04, 0.14, 0.04, 0xffffff, 0.08, 1.05, 0.84));
-  const legs: THREE.Mesh[] = [];
-  for (const lx of [-0.16, 0.16]) {
-    for (const lz of [-0.4, 0.4]) {
-      const leg = box(0.1, 0.6, 0.1, col, lx, 0.3, lz);
-      legs.push(leg);
-      g.add(leg);
-    }
+  for (const s of [-1, 1]) {
+    arms.add(pill(fur, 0.2, 1.5, [s * 1.3, 1.28, 0.2], 'x'), part(G.ball, darken(fur), [s * 2.08, 1.28, 0.3], [0.26, 0.3, 0.3]));
+    for (let k = -1; k <= 1; k++) arms.add(part(G.cone, 0xf2ead8, [s * 2.2, 1.28 + k * 0.14, 0.55], [0.04, 0.16, 0.04]));
   }
-  g.userData.legs = legs;
+  arms.children.forEach((c) => {
+    if ((c as THREE.Mesh).geometry === G.cone) c.rotation.x = Math.PI / 2;
+  });
+  g.add(arms, blob(1.0, 0.8));
+  g.userData.arms = arms;
   return g;
 }
 
@@ -289,17 +477,30 @@ export function makeDeer(): THREE.Group {
  */
 export function makeTiger(): THREE.Group {
   const g = new THREE.Group();
-  g.add(box(1.9, 0.7, 0.7, 0xe8962e, 0, 0.75, 0));
-  for (const sx of [-0.5, 0, 0.5]) g.add(box(0.14, 0.72, 0.72, 0x222222, sx, 0.75, 0));
-  g.add(box(0.75, 0.75, 0.8, 0xe8962e, 1.15, 1.0, 0));
-  g.add(box(0.1, 0.4, 0.5, 0xfff3d6, 1.54, 0.9, 0));
-  g.add(box(0.06, 0.12, 0.12, 0x111111, 1.55, 1.2, -0.2), box(0.06, 0.12, 0.12, 0x111111, 1.55, 1.2, 0.2));
-  for (const lx of [-0.7, 0.7]) for (const lz of [-0.25, 0.25]) g.add(box(0.2, 0.45, 0.2, 0xe8962e, lx, 0.22, lz));
-  g.add(box(0.7, 0.12, 0.12, 0xe8962e, -1.25, 1.0, 0));
+  const fur = 0xee9a2e;
+  g.add(pill(fur, 0.36, 1.9, [0, 0.78, 0], 'x'), part(G.ball, 0xfff3d6, [0.1, 0.62, 0], [0.7, 0.24, 0.3]));
+  for (const sx of [-0.55, -0.15, 0.25]) {
+    const stripe = part(G.tube, 0x1e1a16, [sx, 0.82, 0], [0.365, 0.1, 0.365]);
+    stripe.rotation.z = Math.PI / 2;
+    stripe.scale.set(0.37, 0.09, 0.37);
+    g.add(stripe);
+  }
+  g.add(part(G.ball, fur, [1.12, 1.02, 0], [0.42, 0.4, 0.42]), part(G.ball, 0xfff3d6, [1.42, 0.92, 0], [0.2, 0.17, 0.26]));
+  g.add(part(G.ballLow, 0x151515, [1.6, 0.98, 0], [0.05, 0.05, 0.08]));
+  for (const s of [-1, 1]) {
+    g.add(part(G.ballLow, fur, [1.05, 1.4, s * 0.26], [0.12, 0.14, 0.1]), part(G.cube, 0x1e1a16, [1.2, 1.3, s * 0.12], [0.03, 0.14, 0.05]));
+    for (const lx of [-0.62, 0.62]) g.add(pill(fur, 0.11, 0.56, [lx, 0.28, s * 0.22]));
+  }
+  addEyes(g, [1.46, 1.12, 0], 'x', 0.17, 0.055);
+  const tail = pill(fur, 0.07, 0.9, [-1.25, 1.1, 0]);
+  tail.rotation.z = 0.7;
+  g.add(tail, part(G.ballLow, 0x1e1a16, [-1.56, 1.42, 0], [0.09, 0.09, 0.09]));
   const magpie = new THREE.Group();
-  magpie.add(box(0.35, 0.2, 0.2, 0x111111), box(0.2, 0.1, 0.18, 0xffffff, 0, -0.08, 0));
+  magpie.add(part(G.ballLow, 0x151515, [0, 0, 0], [0.2, 0.13, 0.13]), part(G.ballLow, 0xffffff, [0.02, -0.05, 0], [0.13, 0.08, 0.1]));
+  magpie.add(part(G.cone, 0xe0a030, [0.24, 0.02, 0], [0.03, 0.1, 0.03]), part(G.cube, 0x151515, [-0.26, 0.04, 0], [0.22, 0.03, 0.08]));
+  magpie.children[2].rotation.z = -Math.PI / 2;
   magpie.position.set(0.4, 2.1, 0);
-  g.add(magpie);
+  g.add(magpie, blob(1.3, 0.5));
   g.userData.magpie = magpie;
   return g;
 }
@@ -312,20 +513,114 @@ export function makeTiger(): THREE.Group {
  */
 export function makeGiraffe(neckLen: number): THREE.Group {
   const g = new THREE.Group();
-  const col = 0xe3b23c;
-  for (const lx of [-0.4, 0.4]) for (const lz of [-0.6, 0.6]) g.add(box(0.2, 1.2, 0.2, col, lx, 0.6, lz));
-  g.add(box(1.1, 0.8, 1.7, col, 0, 1.55, 0));
+  const col = 0xecc04a;
+  const spot = 0xa8701f;
+  for (const lx of [-0.36, 0.36]) for (const lz of [-0.6, 0.6]) g.add(pill(col, 0.11, 1.3, [lx, 0.62, lz]), part(G.ballLow, 0x4a3520, [lx, 0.06, lz], [0.13, 0.08, 0.14]));
+  g.add(pill(col, 0.5, 2.1, [0, 1.6, 0], 'z'));
+  for (const [sx, sy, sz] of [[0.42, 1.75, 0.4], [-0.44, 1.6, -0.2], [0.4, 1.5, -0.55], [-0.38, 1.82, 0.55], [0, 2.08, 0.1]]) g.add(part(G.ballLow, spot, [sx, sy, sz], [0.16, 0.16, 0.16]));
+  const tail = pill(col, 0.04, 0.7, [0, 1.3, -1.15]);
+  tail.rotation.x = -0.4;
+  g.add(tail);
   const neck = new THREE.Group();
-  neck.position.set(0, 1.55, 0);
-  neck.add(box(neckLen, 0.32, 0.32, col, neckLen / 2, 0, 0));
-  for (let i = 1; i < neckLen; i += 1.4) neck.add(box(0.3, 0.34, 0.34, 0x9c6b1e, i, 0, 0));
-  neck.add(box(0.8, 0.45, 0.45, col, neckLen + 0.3, 0, 0));
-  neck.add(box(0.08, 0.3, 0.08, 0x9c6b1e, neckLen + 0.2, 0.35, 0.12), box(0.08, 0.3, 0.08, 0x9c6b1e, neckLen + 0.2, 0.35, -0.12));
-  const bundle = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), mat(0xc0392b));
-  bundle.position.set(neckLen * 0.45, -0.45, 0);
-  neck.add(bundle);
-  g.add(neck);
+  neck.position.set(0, 1.6, 0);
+  neck.add(pill(col, 0.19, neckLen + 0.3, [neckLen / 2, 0, 0], 'x'));
+  for (let i = 1; i < neckLen; i += 1.1) neck.add(part(G.ballLow, spot, [i, 0.13 * (i % 2 ? 1 : -1), 0.1 * (i % 3 ? 1 : -1)], [0.16, 0.12, 0.12]));
+  neck.add(part(G.ball, col, [neckLen + 0.35, 0, 0], [0.5, 0.26, 0.27]), part(G.ball, 0xf6e2b0, [neckLen + 0.72, -0.03, 0], [0.2, 0.17, 0.2]));
+  for (const s of [-1, 1]) {
+    neck.add(pill(spot, 0.04, 0.34, [neckLen + 0.2, 0.36, s * 0.12]), part(G.ballLow, spot, [neckLen + 0.2, 0.55, s * 0.12], [0.07, 0.07, 0.07]));
+    neck.add(part(G.ballLow, col, [neckLen + 0.05, 0.18, s * 0.3], [0.08, 0.06, 0.14]));
+  }
+  addEyes(neck, [neckLen + 0.52, 0.1, 0], 'x', 0.22, 0.05);
+  // 탈북 보따리
+  neck.add(part(G.ball, 0xc0392b, [neckLen * 0.45, -0.48, 0], [0.36, 0.32, 0.32]), part(G.ballLow, 0xa52f23, [neckLen * 0.45, -0.14, 0], [0.1, 0.1, 0.1]));
+  g.add(neck, blob(0.8, 1.2));
   g.userData.neck = neck;
+  return g;
+}
+
+/**
+ * 고양이 모델을 만든다. 머리는 +x 방향이다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.Group} 고양이 모델
+ */
+export function makeCat(): THREE.Group {
+  const g = new THREE.Group();
+  const fur = 0x9aa0a8;
+  g.add(pill(fur, 0.17, 0.85, [0, 0.38, 0], 'x'), part(G.ball, fur, [0.48, 0.55, 0], [0.2, 0.19, 0.2]));
+  g.add(part(G.ballLow, 0xffffff, [0.62, 0.5, 0], [0.09, 0.07, 0.11]), part(G.ballLow, 0xe58a9a, [0.7, 0.53, 0], [0.025, 0.02, 0.03]));
+  for (const s of [-1, 1]) {
+    g.add(part(G.cone, fur, [0.44, 0.78, s * 0.11], [0.07, 0.15, 0.07]));
+    for (const lx of [-0.28, 0.28]) g.add(pill(fur, 0.05, 0.26, [lx, 0.13, s * 0.1]));
+  }
+  addEyes(g, [0.63, 0.6, 0], 'x', 0.09, 0.035);
+  const tail = pill(fur, 0.04, 0.55, [-0.48, 0.66, 0]);
+  tail.rotation.z = 0.5;
+  g.add(tail, blob(0.6, 0.28));
+  return g;
+}
+
+/**
+ * 고라니 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.Group} 고라니 모델. userData.legs에 다리가 들어 있다
+ */
+export function makeDeer(): THREE.Group {
+  const g = new THREE.Group();
+  const col = 0xb08a58;
+  g.add(pill(col, 0.27, 1.25, [0, 0.88, 0], 'z'), part(G.ball, 0xf0dfc0, [0, 0.76, 0], [0.2, 0.14, 0.5]));
+  const neck = pill(col, 0.12, 0.6, [0, 1.15, 0.52]);
+  neck.rotation.x = 0.5;
+  g.add(neck, part(G.ball, col, [0, 1.38, 0.72], [0.19, 0.19, 0.26]), part(G.ballLow, 0x2a2018, [0, 1.33, 0.97], [0.05, 0.04, 0.04]));
+  for (const s of [-1, 1]) {
+    g.add(part(G.ballLow, col, [s * 0.17, 1.6, 0.62], [0.06, 0.14, 0.04]));
+    // 고라니는 뿔 대신 송곳니가 있다.
+    g.add(part(G.cone, 0xffffff, [s * 0.07, 1.2, 0.9], [0.02, 0.12, 0.02]));
+  }
+  g.children.filter((c) => (c as THREE.Mesh).geometry === G.cone).forEach((c) => (c.rotation.x = Math.PI));
+  addEyes(g, [0, 1.43, 0.9], 'z', 0.13, 0.04);
+  const legs: THREE.Mesh[] = [];
+  for (const lx of [-0.15, 0.15]) {
+    for (const lz of [-0.42, 0.42]) {
+      const leg = pill(col, 0.055, 0.66, [lx, 0.33, lz]);
+      legs.push(leg);
+      g.add(leg);
+    }
+  }
+  g.add(part(G.ballLow, 0xffffff, [0, 0.98, -0.66], [0.08, 0.08, 0.06]), blob(0.4, 0.8));
+  g.userData.legs = legs;
+  return g;
+}
+
+/**
+ * 멧돼지 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.Group} 멧돼지 모델. userData.legs에 다리가 들어 있다
+ */
+export function makeBoar(): THREE.Group {
+  const g = new THREE.Group();
+  const col = 0x54402f;
+  g.add(pill(col, 0.5, 1.75, [0, 0.82, 0], 'z'), part(G.ball, col, [0, 0.8, 0.95], [0.4, 0.38, 0.42]));
+  const snout = part(G.tube, 0x8a6a5a, [0, 0.68, 1.36], [0.17, 0.2, 0.15]);
+  snout.rotation.x = Math.PI / 2;
+  g.add(snout, part(G.ballLow, 0x2a1c14, [-0.06, 0.68, 1.47], [0.03, 0.04, 0.02]), part(G.ballLow, 0x2a1c14, [0.06, 0.68, 1.47], [0.03, 0.04, 0.02]));
+  // 등줄기를 따라 선 갈기
+  for (let z = -0.7; z <= 0.7; z += 0.28) g.add(part(G.cone, 0x2a2018, [0, 1.42, z], [0.09, 0.3, 0.09]));
+  for (const s of [-1, 1]) {
+    const tusk = part(G.cone, 0xfff3d6, [s * 0.24, 0.72, 1.3], [0.04, 0.24, 0.04]);
+    tusk.rotation.z = s * -0.35;
+    g.add(tusk, part(G.ballLow, col, [s * 0.3, 1.15, 0.8], [0.1, 0.14, 0.06]));
+  }
+  addEyes(g, [0, 0.95, 1.3], 'z', 0.2, 0.045);
+  const legs: THREE.Mesh[] = [];
+  for (const lx of [-0.3, 0.3]) {
+    for (const lz of [-0.55, 0.55]) {
+      const leg = pill(col, 0.09, 0.5, [lx, 0.25, lz]);
+      legs.push(leg);
+      g.add(leg);
+    }
+  }
+  g.add(blob(0.75, 1.15));
+  g.userData.legs = legs;
   return g;
 }
 
@@ -338,6 +633,7 @@ export function makeLimo(): THREE.Group {
   const g = new THREE.Group();
   g.add(box(3.4, 0.9, 9.5, 0x0d0d0f, 0, 0.75, 0), box(3.0, 0.7, 5.6, 0x16161a, 0, 1.5, -0.6));
   g.add(box(3.05, 0.42, 5.1, 0x3a4656, 0, 1.55, -0.6), box(2.4, 0.45, 0.1, 0xc8c8c8, 0, 0.75, 4.78));
+  g.add(box(3.46, 0.08, 9.56, 0xb9b9b9, 0, 0.45, 0));
   const lamp = new THREE.MeshBasicMaterial({ color: 0xfff2a8 });
   for (const sx of [-1.35, 1.35]) {
     const light = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.08), lamp);
@@ -345,35 +641,15 @@ export function makeLimo(): THREE.Group {
     g.add(light);
     // 앞 범퍼 양쪽의 장군 깃발
     g.add(box(0.05, 0.9, 0.05, 0xcfcfcf, sx, 1.65, 4.5), box(0.5, 0.32, 0.03, 0xc00000, sx + 0.27, 1.92, 4.5));
-    for (const wz of [-3.4, 0, 3.4]) g.add(box(0.35, 0.8, 0.9, 0x1e1e1e, sx * 1.22, 0.4, wz));
+    for (const wz of [-3.4, 0, 3.4]) {
+      const wheel = part(G.tube, 0x1a1a1a, [sx * 1.25, 0.42, wz], [0.42, 0.3, 0.42]);
+      wheel.rotation.z = Math.PI / 2;
+      g.add(wheel);
+    }
   }
   const plate = makeSign('★★★★', 1.5, 0.42, '#c00000', '#ffd700', 0);
   plate.position.set(0, 0.12, 4.82);
-  g.add(plate);
-  return g;
-}
-
-/**
- * 멧돼지 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
- * @author heojeehaeng(claude)
- * @return {THREE.Group} 멧돼지 모델. userData.legs에 다리가 들어 있다
- */
-export function makeBoar(): THREE.Group {
-  const g = new THREE.Group();
-  const col = 0x4a3b30;
-  g.add(box(0.95, 0.85, 1.6, col, 0, 0.8, 0), box(0.7, 0.65, 0.7, col, 0, 0.75, 1.0));
-  g.add(box(0.36, 0.3, 0.28, 0x7a5c50, 0, 0.62, 1.42), box(0.2, 0.22, 1.5, 0x2a2018, 0, 1.3, 0));
-  g.add(box(0.06, 0.24, 0.06, 0xfff3d6, -0.24, 0.7, 1.4), box(0.06, 0.24, 0.06, 0xfff3d6, 0.24, 0.7, 1.4));
-  g.add(box(0.08, 0.08, 0.04, 0x111111, -0.2, 0.92, 1.36), box(0.08, 0.08, 0.04, 0x111111, 0.2, 0.92, 1.36));
-  const legs: THREE.Mesh[] = [];
-  for (const lx of [-0.3, 0.3]) {
-    for (const lz of [-0.55, 0.55]) {
-      const leg = box(0.16, 0.45, 0.16, col, lx, 0.22, lz);
-      legs.push(leg);
-      g.add(leg);
-    }
-  }
-  g.userData.legs = legs;
+  g.add(plate, blob(2.0, 5.0));
   return g;
 }
 
@@ -383,23 +659,17 @@ export function makeBoar(): THREE.Group {
  * @return {THREE.Group} 마스코트 모델. 기본 방향은 -z이다
  */
 export function makeMascot(): THREE.Group {
-  const g = makePerson({ shirt: 0x5c8a3c, pants: 0x5c8a3c });
+  const g = makePerson({ shirt: 0x5c8a3c, pants: 0x5c8a3c, face: 'grin', hair: 0x111111 });
   // 얼룩무늬
-  g.add(box(0.2, 0.18, 0.36, 0x2f5a25, -0.14, 0.92, 0), box(0.22, 0.16, 0.36, 0x3d3a22, 0.12, 0.72, 0));
-  g.add(box(0.5, 0.07, 0.36, 0x2b2b2b, 0, 0.56, 0));
-  // 뾰족한 머리카락
-  for (let i = -2; i <= 2; i++) {
-    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.28, 5), mat(0x111111));
-    spike.position.set(i * 0.15, 1.98 - Math.abs(i) * 0.04, 0);
-    g.add(spike);
+  for (const [x, y, c] of [[-0.14, 0.95, 0x2f5a25], [0.12, 0.75, 0x3d3a22], [0.02, 1.08, 0x3d3a22], [-0.1, 0.68, 0x2f5a25]]) {
+    g.add(part(G.ballLow, c, [x, y, -0.21], [0.11, 0.08, 0.04]));
   }
-  g.add(box(0.78, 0.12, 0.6, 0x111111, 0, 1.84, 0.05));
-  // 활짝 웃는 입
-  g.add(box(0.46, 0.2, 0.05, 0xb5362e, 0, 1.36, -0.4), box(0.42, 0.07, 0.06, 0xffffff, 0, 1.43, -0.41));
+  // 뾰족한 머리카락
+  for (let i = -2; i <= 2; i++) g.add(part(G.cone, 0x111111, [i * 0.15, 1.99 - Math.abs(i) * 0.04, -0.02], [0.1, 0.3, 0.1]));
   // 치켜든 엄지
   const { armR } = g.userData.parts;
   armR.rotation.x = 1.5;
-  armR.add(box(0.2, 0.2, 0.2, 0xf1c9a5, 0, -0.58, 0), box(0.08, 0.08, 0.2, 0xf1c9a5, 0, -0.58, 0.18));
+  armR.add(part(G.ballLow, 0xf3cfae, [0, -0.5, 0.12], [0.045, 0.045, 0.1]));
   g.scale.setScalar(1.45);
   return g;
 }
@@ -413,42 +683,38 @@ export function makeMascot(): THREE.Group {
 export function makeGiantHead(skin: number): THREE.Group {
   const g = new THREE.Group();
   const hair = 0x1c1612;
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 14), mat(skin)));
+  g.add(part(G.ball, skin, [0, 0, 0], [2.5, 2.5, 2.5]));
   // 크고 둥근 눈: 흰자, 회색 눈동자, 검은 동공, 반짝이는 점
-  const flat = (r: number, color: number, x: number, y: number, z: number) => {
-    const c = new THREE.Mesh(new THREE.CircleGeometry(r, 18), new THREE.MeshBasicMaterial({ color }));
+  const dot = (r: number, color: number, x: number, y: number, z: number) => {
+    const c = new THREE.Mesh(G.disc, flat(color));
     c.position.set(x, y, z);
+    c.scale.setScalar(r);
     return c;
   };
   for (const sx of [-1, 1]) {
-    const white = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 12), mat(0xf4f4f0));
-    white.scale.z = 0.4;
-    white.position.set(sx * 0.98, 0.3, 2.12);
-    g.add(white);
-    g.add(flat(0.44, 0x8a8f96, sx * 0.98, 0.3, 2.42), flat(0.2, 0x111111, sx * 0.98, 0.3, 2.44), flat(0.09, 0xffffff, sx * 0.98 + 0.16, 0.48, 2.46));
+    g.add(part(G.ball, 0xf4f4f0, [sx * 0.98, 0.3, 2.12], [0.72, 0.72, 0.29]));
+    g.add(dot(0.44, 0x8a8f96, sx * 0.98, 0.3, 2.42), dot(0.2, 0x111111, sx * 0.98, 0.3, 2.44), dot(0.09, 0xffffff, sx * 0.98 + 0.16, 0.48, 2.46));
     // 안쪽 끝이 내려간 굵은 눈썹
-    const brow = box(1.25, 0.24, 0.3, hair, sx * 0.98, 1.18, 2.2);
+    const brow = part(G.cube, hair, [sx * 0.98, 1.18, 2.2], [1.25, 0.24, 0.3]);
     brow.rotation.z = sx * 0.32;
     g.add(brow);
     // 아래로 처진 입꼬리
-    const corner = box(0.45, 0.13, 0.2, 0x5a2f24, sx * 0.82, -1.22, 2.08);
+    const corner = part(G.cube, 0x5a2f24, [sx * 0.82, -1.22, 2.08], [0.45, 0.13, 0.2]);
     corner.rotation.z = sx * -0.55;
     g.add(corner);
     // 옆으로 내려온 머리카락
-    g.add(box(0.8, 3.4, 2.2, hair, sx * 2.35, -0.3, -0.1));
+    g.add(part(G.cube, hair, [sx * 2.35, -0.3, -0.1], [0.8, 3.4, 2.2]));
   }
-  g.add(box(0.5, 0.7, 0.45, 0xa9694f, 0, -0.35, 2.45), box(1.35, 0.14, 0.2, 0x5a2f24, 0, -1.1, 2.2));
+  g.add(part(G.cube, darken(skin), [0, -0.35, 2.45], [0.5, 0.7, 0.45]), part(G.cube, 0x5a2f24, [0, -1.1, 2.2], [1.35, 0.14, 0.2]));
   // 정수리를 덮는 머리. 뒤로 기울여 이마가 드러나게 한다.
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(2.66, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(hair));
-  cap.position.y = 0.2;
+  const cap = part(G.dome, hair, [0, 0.2, 0], [2.66, 2.66, 2.66]);
   cap.rotation.x = -0.5;
-  g.add(cap, box(4.2, 3.6, 1.0, hair, 0, -0.6, -2.1));
+  g.add(cap, part(G.cube, hair, [0, -0.6, -2.1], [4.2, 3.6, 1.0]));
   // 이마로 삐죽삐죽 내려온 앞머리
   [-1.9, -1.25, -0.6, 0.05, 0.7, 1.35, 1.95].forEach((x, i) => {
     const len = i % 2 ? 1.7 : 1.15;
-    const strand = new THREE.Mesh(new THREE.ConeGeometry(0.42, len, 5), mat(hair));
+    const strand = part(G.cone, hair, [x, 1.75 - len / 2 + 0.25, Math.sqrt(Math.max(0.5, 6.6 - x * x - 1.6)) + 0.12], [0.42, len, 0.42]);
     strand.rotation.x = Math.PI;
-    strand.position.set(x, 1.75 - len / 2 + 0.25, Math.sqrt(Math.max(0.5, 6.6 - x * x - 1.6)) + 0.12);
     g.add(strand);
   });
   return g;
