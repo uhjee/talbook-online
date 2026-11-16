@@ -119,12 +119,8 @@ export function buildEntities(c: Ctx, seed: number): Entity[] {
  */
 function mineEntities(c: Ctx, es: Entity[], rnd: () => number): void {
   const end = STAGES[0].to;
-  es.push(new Hint(6, '좌우 방향키(화면 끌기)로 움직입니다'));
-  es.push(new Hint(55, '스페이스바(위로 쓸기)로 점프!'));
   es.push(new Barrier(c, 100, 'low'));
-  es.push(new Hint(140, '아래 방향키(아래로 쓸기)로 슬라이드!'));
   es.push(new Barrier(c, 185, 'high'));
-  es.push(new Hint(205, '위 방향키(화면 두 번 두드리기)로 부스터!'));
   es.push(new Hint(262, '동료와 간수는 점프로 넘고, 광차와 떨어지는 돌은 피하세요'));
   const pick = deck(rnd, { grab: 3, cart: 2, low: 2, high: 2, rocks: 3 });
   along(290, end - 12, 30, 15, rnd, (d, k) => {
@@ -248,7 +244,7 @@ function dmzEntities(c: Ctx, es: Entity[], rnd: () => number): void {
   es.push(new Barrier(c, from + 8, 'gap', -1.5, 2.8));
   es.push(new Hint(from + 14, '붉은 조준선이 보이면 옆으로 피하거나 슬라이드!'));
   es.push(new Hint(from + 80, '볼록한 흙더미는 지뢰! 피하거나 점프로 넘으세요'));
-  es.push(new Hint(from + 150, '기린과 곰은 슬라이드, 호랑이는 점프, 고라니는 옆으로!'));
+  es.push(new Hint(from + 150, '곰은 다리 사이로 슬라이드! 기린도 슬라이드, 호랑이는 점프, 고라니는 옆으로'));
   let side = 1;
   along(from + 45, to - 30, 66, 46, rnd, (d, k) => {
     side = -side;

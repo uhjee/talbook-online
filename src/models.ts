@@ -227,18 +227,75 @@ const bubbleMats = new Map<string, THREE.MeshBasicMaterial>();
  * 머리 위에 띄우는 말풍선을 만든다. 같은 대사는 재질과 글자 그림을 함께 써서, 적을 다시 배치할 때마다 새로 그리지 않는다.
  * @author heojeehaeng(claude)
  * @param {string} text 말풍선에 넣을 대사
- * @return {THREE.Mesh} 말풍선. 글자는 +z 방향을 향한다
+ * @return {THREE.Mesh} 말풍선. 글자는 +z 방향을 향하고, 꼬리 끝이 원점이다
  */
 export function makeBubble(text: string): THREE.Mesh {
-  const w = Math.min(7.4, 0.5 * text.length + 1.0);
-  const h = 1.08;
+  const lines = wrapBubble(text);
+  const longest = Math.max(...lines.map((l) => l.length));
+  // 길을 가리지 않도록 글자 한 자를 0.26m 안팎으로 작게 잡는다.
+  const w = 0.26 * longest + 0.5;
+  const body = 0.34 * lines.length + 0.2;
+  const tail = 0.16;
+  const h = body + tail;
   let material = bubbleMats.get(text);
   if (!material) {
-    material = new THREE.MeshBasicMaterial({ map: textTexture(text, Math.round((256 * w) / h), 256, '#ffffff', '#b3261e'), side: THREE.DoubleSide });
+    const px = 240;
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w * px);
+    cv.height = Math.round(h * px);
+    const g = cv.getContext('2d')!;
+    const pad = 5;
+    const bw = cv.width - pad * 2;
+    const bh = Math.round(body * px) - pad * 2;
+    const r = Math.min(bh / 2, 0.16 * px);
+    const cx = cv.width / 2;
+    g.beginPath();
+    g.moveTo(pad + r, pad);
+    g.arcTo(pad + bw, pad, pad + bw, pad + bh, r);
+    g.arcTo(pad + bw, pad + bh, pad, pad + bh, r);
+    // 아래 가운데에 말하는 사람을 가리키는 꼬리를 낸다.
+    g.lineTo(cx + 0.1 * px, pad + bh);
+    g.lineTo(cx, cv.height - pad);
+    g.lineTo(cx - 0.1 * px, pad + bh);
+    g.arcTo(pad, pad + bh, pad, pad, r);
+    g.arcTo(pad, pad, pad + bw, pad, r);
+    g.closePath();
+    g.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    g.fill();
+    g.lineWidth = 7;
+    g.strokeStyle = '#b3261e';
+    g.stroke();
+    const size = Math.floor(Math.min((bh * 0.84) / (lines.length * 1.18), (bw * 0.92) / longest));
+    g.fillStyle = '#8f1a14';
+    g.font = `bold ${size}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, cx, pad + bh / 2 + (i - (lines.length - 1) / 2) * size * 1.18));
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     material.userData.shared = true;
     bubbleMats.set(text, material);
   }
-  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+  const geo = new THREE.PlaneGeometry(w, h);
+  // 꼬리 끝이 원점에 오도록 올려서, 놓는 위치가 곧 말하는 사람의 머리 위가 되게 한다.
+  geo.translate(0, h / 2, 0);
+  return new THREE.Mesh(geo, material);
+}
+
+/**
+ * 말풍선에 넣을 대사를 줄로 나눈다. 긴 대사는 가운데에 가까운 띄어쓰기에서 두 줄로 나눈다.
+ * @author heojeehaeng(claude)
+ * @param {string} text 대사
+ * @return {string[]} 줄 목록
+ */
+function wrapBubble(text: string): string[] {
+  if (text.length <= 9) return [text];
+  let cut = -1;
+  for (let i = 1; i < text.length - 1; i++) {
+    if (text[i] === ' ' && (cut < 0 || Math.abs(i - text.length / 2) < Math.abs(cut - text.length / 2))) cut = i;
+  }
+  return cut < 0 ? [text] : [text.slice(0, cut), text.slice(cut + 1)];
 }
 
 /**
@@ -441,33 +498,89 @@ function addEyes(g: THREE.Group, at: number[], axis: 'x' | 'z', gap: number, r: 
 }
 
 /**
- * 곰 모델을 만든다. 건빵 봉지를 들고 있고, 베어허그를 하려고 앞발을 벌린다. 얼굴은 +z 방향이다.
+ * 곰 모델을 만든다. 두 다리를 넓게 벌리고 서서 가랑이 사이가 문처럼 뚫려 있고, 베어허그를 하려고 앞발을 벌린다. 얼굴은 +z 방향이다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 곰 모델. userData.arms에 벌린 앞발이 들어 있다
+ * @return {THREE.Group} 곰 모델. userData.arms에 벌린 앞발이, userData.guide에 다리 사이로 이끄는 바닥 화살표가 들어 있다
  */
 export function makeBear(): THREE.Group {
   const g = new THREE.Group();
   const fur = 0x7a4a26;
   const pale = 0xd9b38c;
-  g.add(part(G.ball, fur, [0, 0.85, 0], [0.78, 0.82, 0.62]), part(G.ball, pale, [0, 0.8, 0.36], [0.46, 0.52, 0.32]));
-  g.add(pill(fur, 0.2, 0.6, [-0.38, 0.3, 0]), pill(fur, 0.2, 0.6, [0.38, 0.3, 0]));
-  g.add(part(G.ball, fur, [0, 1.78, 0.12], [0.5, 0.46, 0.46]), part(G.ball, pale, [0, 1.68, 0.5], [0.24, 0.19, 0.2]));
-  g.add(part(G.ballLow, 0x151515, [0, 1.74, 0.7], [0.08, 0.06, 0.05]));
-  for (const s of [-1, 1]) g.add(part(G.ballLow, fur, [s * 0.38, 2.14, 0.08], [0.17, 0.17, 0.1]), part(G.ballLow, pale, [s * 0.38, 2.13, 0.14], [0.09, 0.09, 0.06]));
-  addEyes(g, [0, 1.88, 0.52], 'z', 0.2, 0.06);
+  const dark = darken(fur);
+  for (const s of [-1, 1]) {
+    // 다리를 바깥으로 벌려 세워서 슬라이드로 지나갈 틈을 만든다.
+    const leg = pill(fur, 0.24, 1.3, [s * 0.86, 0.7, 0]);
+    leg.rotation.z = s * 0.26;
+    g.add(leg, part(G.ball, fur, [s * 0.62, 1.42, 0], [0.38, 0.36, 0.4]));
+    g.add(part(G.ball, dark, [s * 1.05, 0.13, 0.14], [0.3, 0.15, 0.42]));
+    for (let k = -1; k <= 1; k++) {
+      const claw = part(G.cone, 0xf2ead8, [s * 1.05 + k * 0.13, 0.1, 0.56], [0.035, 0.13, 0.035]);
+      claw.rotation.x = Math.PI / 2;
+      g.add(claw);
+    }
+  }
+  g.add(part(G.ball, fur, [0, 1.98, 0], [0.96, 0.8, 0.62]), part(G.ball, pale, [0, 1.94, 0.36], [0.52, 0.56, 0.32]));
+  g.add(part(G.ball, fur, [0, 2.92, 0.12], [0.52, 0.48, 0.48]), part(G.ball, pale, [0, 2.82, 0.52], [0.25, 0.2, 0.2]));
+  g.add(part(G.ballLow, 0x151515, [0, 2.89, 0.72], [0.08, 0.06, 0.05]), part(G.ballLow, 0x5a1f1a, [0, 2.72, 0.66], [0.1, 0.07, 0.05]));
+  for (const s of [-1, 1]) g.add(part(G.ballLow, fur, [s * 0.4, 3.3, 0.08], [0.17, 0.17, 0.1]), part(G.ballLow, pale, [s * 0.4, 3.29, 0.14], [0.09, 0.09, 0.06]));
+  addEyes(g, [0, 3.03, 0.54], 'z', 0.2, 0.06);
   // 건빵 봉지
-  g.add(part(G.cube, 0xd8c690, [0.55, 0.95, 0.5], [0.42, 0.5, 0.16]), part(G.cube, 0xb8412e, [0.55, 1.0, 0.59], [0.3, 0.14, 0.02]));
+  g.add(part(G.cube, 0xd8c690, [0.62, 1.9, 0.52], [0.42, 0.5, 0.16]), part(G.cube, 0xb8412e, [0.62, 1.95, 0.61], [0.3, 0.14, 0.02]));
   const arms = new THREE.Group();
   for (const s of [-1, 1]) {
-    arms.add(pill(fur, 0.2, 1.5, [s * 1.3, 1.28, 0.2], 'x'), part(G.ball, darken(fur), [s * 2.08, 1.28, 0.3], [0.26, 0.3, 0.3]));
-    for (let k = -1; k <= 1; k++) arms.add(part(G.cone, 0xf2ead8, [s * 2.2, 1.28 + k * 0.14, 0.55], [0.04, 0.16, 0.04]));
+    // 어깨에서 바깥 아래, 앞쪽으로 뻗어 달려오는 사람을 끌어안는 자세를 만든다.
+    const arm = new THREE.Group();
+    arm.position.set(s * 0.6, 2.32, 0.1);
+    arm.rotation.set(0, -s * 0.35, -s * 0.5);
+    arm.add(pill(fur, 0.21, 1.5, [s * 0.7, 0, 0], 'x'), part(G.ball, dark, [s * 1.46, 0, 0.06], [0.27, 0.3, 0.3]));
+    for (let k = -1; k <= 1; k++) {
+      const claw = part(G.cone, 0xf2ead8, [s * 1.56, k * 0.14, 0.34], [0.04, 0.16, 0.04]);
+      claw.rotation.x = Math.PI / 2;
+      arm.add(claw);
+    }
+    arms.add(arm);
   }
-  arms.children.forEach((c) => {
-    if ((c as THREE.Mesh).geometry === G.cone) c.rotation.x = Math.PI / 2;
-  });
-  g.add(arms, blob(1.0, 0.8));
+  const guide = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3.2), bearGuideMat());
+  guide.rotation.x = -Math.PI / 2;
+  guide.position.set(0, 0.045, 1.7);
+  g.add(arms, guide, blob(1.4, 0.8));
   g.userData.arms = arms;
+  g.userData.guide = guide;
   return g;
+}
+
+let guideMat: THREE.MeshBasicMaterial | null = null;
+
+/**
+ * 곰의 다리 사이로 이끄는 바닥 화살표 재질을 반환한다. 모든 곰이 한 장을 함께 쓴다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.MeshBasicMaterial} 화살표가 반복되는 재질. 질감을 세로로 밀면 화살표가 흐른다
+ */
+function bearGuideMat(): THREE.MeshBasicMaterial {
+  if (guideMat) return guideMat;
+  const cv = document.createElement('canvas');
+  cv.width = 128;
+  cv.height = 128;
+  const c = cv.getContext('2d')!;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  // 캔버스 위쪽이 곰 쪽이므로 위를 가리키는 꺾쇠를 그린다. 밝은 풀밭에서도 보이도록 어두운 테두리를 먼저 깐다.
+  for (const [color, width] of [['#3a2a00', 34], ['#ffe14d', 20]] as const) {
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.beginPath();
+    c.moveTo(26, 98);
+    c.lineTo(64, 44);
+    c.lineTo(102, 98);
+    c.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 3);
+  guideMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+  guideMat.userData.shared = true;
+  return guideMat;
 }
 
 /**

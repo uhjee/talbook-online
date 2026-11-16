@@ -191,6 +191,21 @@ class Game implements Ctx {
     this.state = 'play';
     this.input.clear();
     this.input.enabled = true;
+    this.hud.say('카리나 동무 기다리라우!!', true);
+  }
+
+  /**
+   * 탄광 앞부분에서 지금 익힐 조작을 고른다. 연습용 장애물 앞에서 그 조작을 강조한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 달린 거리(m)
+   * @return {string|null} 강조할 동작. 없으면 null
+   */
+  private static keyFocus(d: number): string | null {
+    if (d < 45) return 'move';
+    if (d < 110) return 'jump';
+    if (d > 125 && d < 195) return 'slide';
+    if (d >= 195 && d < 270) return 'boost';
+    return null;
   }
 
   /**
@@ -264,6 +279,8 @@ class Game implements Ctx {
       this.stageId = stage.id;
       if (p.d > 1) this.toast(stage.name, 2);
     }
+    // 조작 안내판은 조작을 익히는 탄광 구간에서만 보여 준다.
+    this.hud.keys(stage.id === 'mine', Game.keyFocus(p.d));
     if (p.d >= KNOCK_AT) {
       p.d = KNOCK_AT;
       p.x = 0;

@@ -110,17 +110,52 @@ export class Hud {
   private toastTimer = 0;
   private sayTimer = 0;
 
+  private touch = window.matchMedia('(pointer: coarse)').matches;
+  private keysKey = '';
+
   /**
-   * 적의 대사를 화면 아래에 자막으로 잠깐 띄운다. 새 대사가 오면 앞의 것을 바꾼다.
+   * 마지막으로 쓴 입력 장치를 지켜본다. 손가락으로 누르면 터치 동작 안내로, 키보드를 누르면 키 안내로 바꾼다.
+   * @author heojeehaeng(claude)
+   */
+  constructor() {
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') this.touch = true;
+    });
+    window.addEventListener('keydown', () => {
+      this.touch = false;
+    });
+  }
+
+  /**
+   * 대사를 자막으로 잠깐 띄운다. 새 대사가 오면 앞의 것을 바꾼다.
    * @author heojeehaeng(claude)
    * @param {string} text 대사
+   * @param {boolean} hero true면 리용길의 대사로, 화면 가운데 아래에 크게 띄운다. false면 적의 대사로, 길을 가리지 않게 화면 위쪽에 작게 띄운다
    */
-  say(text: string): void {
+  say(text: string, hero = false): void {
     const el = $('taunt');
-    el.textContent = `"${text}"`;
+    el.textContent = hero ? `리용길: "${text}"` : `"${text}"`;
+    el.classList.toggle('hero', hero);
     el.classList.add('on');
     window.clearTimeout(this.sayTimer);
-    this.sayTimer = window.setTimeout(() => el.classList.remove('on'), 1500);
+    this.sayTimer = window.setTimeout(() => el.classList.remove('on'), hero ? 2400 : 1500);
+  }
+
+  /**
+   * 화면 오른쪽 아래의 조작 안내판을 갱신한다. 키보드를 쓰면 키 모양으로, 터치 화면이면 손가락 동작으로 보여 준다.
+   * @author heojeehaeng(claude)
+   * @param {boolean} on 표시 여부
+   * @param {string|null} focus 지금 익힐 동작(move, jump, slide, hide, boost). 해당 칸을 강조한다
+   */
+  keys(on: boolean, focus: string | null): void {
+    // 매 프레임 불리므로 상태가 바뀌었을 때만 화면을 고친다.
+    const key = `${on}|${focus}|${this.touch}`;
+    if (key === this.keysKey) return;
+    this.keysKey = key;
+    const el = $('keys');
+    el.classList.toggle('hidden', !on);
+    el.classList.toggle('touch', this.touch);
+    el.querySelectorAll<HTMLElement>('.k').forEach((k) => k.classList.toggle('on', k.dataset.act === focus));
   }
 
   /**

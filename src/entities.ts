@@ -63,7 +63,7 @@ const TAUNTS = [
 ];
 
 /** 말풍선이 보이기 시작하는 거리(m) */
-const TAUNT_RANGE = 48;
+const TAUNT_RANGE = 34;
 /** 이 거리(m) 안으로 들어오면 욕을 자막으로도 한 번 띄운다 */
 const SAY_RANGE = 30;
 
@@ -296,7 +296,7 @@ export class Grabber implements Entity {
     this.g.position.set(x, 0, -d);
     if (taunt) {
       this.bubble = makeBubble(shout);
-      this.bubble.position.y = 2.55;
+      this.bubble.position.y = 2.2;
       // 몸이 뒤로 돌아서 있으므로 말풍선은 다시 돌려 글자가 플레이어 쪽을 향하게 한다.
       this.bubble.rotation.y = Math.PI;
       this.bubble.visible = false;
@@ -477,7 +477,7 @@ export class Watcher implements Entity {
     c.add(box(1.1, 0.25, 1.1, 0x777777, this.wx, 0.02, -d), d);
     if (taunt) {
       this.bubble = makeBubble(taunt);
-      this.bubble.position.set(this.wx - side * 1.6, 2.75, -d);
+      this.bubble.position.set(this.wx, 2.3, -d);
       this.bubble.visible = false;
       c.add(this.bubble, d);
     }
@@ -547,7 +547,7 @@ export class Shooter implements Entity {
     c.add(this.ring, d, true);
     if (taunt) {
       this.bubble = makeBubble(taunt);
-      this.bubble.position.set(this.sx - side * 1.6, 2.75, -d);
+      this.bubble.position.set(this.sx, 2.3, -d);
       this.bubble.visible = false;
       c.add(this.bubble, d);
     }
@@ -696,8 +696,13 @@ export class Bear implements Entity {
     const dd = this.d - p.d;
     const alert = dd < 55 && dd > -3;
     this.g.visible = dd > -25 && dd < 180;
-    this.g.scale.y += ((alert ? 1.5 : 1) - this.g.scale.y) * Math.min(1, dt * 8);
+    // 가까워지면 몸을 일으켜 다리 사이 틈이 더 크게 보이게 한다.
+    this.g.scale.setScalar(this.g.scale.x + ((alert ? 1.15 : 0.92) - this.g.scale.x) * Math.min(1, dt * 8));
     (this.g.userData.arms as THREE.Group).visible = alert || this.hugT > 0;
+    const guide = this.g.userData.guide as THREE.Mesh;
+    guide.visible = alert && this.hugT <= 0;
+    // 바닥 화살표가 다리 사이를 향해 흐르게 한다.
+    (guide.material as THREE.MeshBasicMaterial).map!.offset.y = 1 - ((c.time * 1.4) % 1);
     if (this.hugT > 0) {
       // 끌어안은 동안에는 곰이 플레이어를 붙든 채 좌우로 흔든다.
       this.hugT -= dt;
@@ -712,7 +717,7 @@ export class Bear implements Entity {
       if (dd < 22) this.d -= 6 * dt;
     }
     this.g.position.set(this.x, 0, -this.d);
-    // 슬라이드하거나 엎드리면 벌린 앞발 아래로 빠져나간다.
+    // 슬라이드하거나 엎드리면 벌린 다리 사이로 빠져나간다.
     if (!p.low && crossed(p, this.d, 1.6) && Math.abs(p.x - this.x) < 2.3 && p.y < 1.6 && p.fall(FALL_HEAVY)) {
       this.hugT = FALL_HEAVY * 0.8;
       c.animalHit();
