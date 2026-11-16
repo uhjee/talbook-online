@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>탈북 온라인</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <span id="stage"></span>
+        <span id="timer">0:00.00</span>
+      </div>
+      <div id="progress"><div id="progress-fill"></div></div>
+    </div>
+    <div id="toast"></div>
+    <div id="taunt"></div>
+
+    <div id="menu" class="screen">
+      <div class="panel">
+        <h1>탈북 온라인</h1>
+        <p class="sub">아오지 탄광에서 SS사단까지 달려서 터치다운!</p>
+        <input id="nick" type="text" maxlength="8" placeholder="닉네임 (2~8자)" autocomplete="off" />
+        <p id="nick-error" class="error"></p>
+        <button id="btn-start" class="primary">탈북 시작</button>
+        <button id="btn-rank">랭킹 보기</button>
+        <div class="help">
+          <p><b>PC</b> 좌우 방향키 이동 · 스페이스바 점프 · 위 방향키 부스터 · 아래 방향키 짧게 슬라이드, 길게 숨기</p>
+          <p><b>모바일</b> 좌우로 끌기 이동 · 위로 쓸기 점프 · 두 번 두드리기 부스터 · 아래로 쓸기 슬라이드 · 길게 누르기 숨기</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="screen hidden">
+      <div class="panel">
+        <h2>탈북 성공!</h2>
+        <p id="res-nick" class="sub"></p>
+        <p id="res-time" class="big"></p>
+        <p id="res-rank" class="rank"></p>
+        <p id="res-title" class="badge"></p>
+        <p id="res-stats" class="sub"></p>
+        <button id="btn-share" class="primary">공유하기</button>
+        <button id="btn-save">이미지 저장</button>
+        <button id="btn-rank2">랭킹 보기</button>
+        <button id="btn-retry">다시 하기</button>
+      </div>
+    </div>
+
+    <div id="fail" class="screen hidden">
+      <div class="panel">
+        <h2 class="fail">탈북 실패</h2>
+        <p id="fail-reason" class="sub"></p>
+        <button id="btn-fail-retry" class="primary">다시 하기</button>
+      </div>
+    </div>
+
+    <div id="rank" class="screen hidden">
+      <div class="panel">
+        <h2>랭킹</h2>
+        <div class="tabs">
+          <button id="tab-all" class="on">전체 순위</button>
+          <button id="tab-today">오늘 순위</button>
+        </div>
+        <ol id="rank-list"></ol>
+        <p class="note">시험판에서는 이 기기의 기록만 보입니다.</p>
+        <button id="btn-rank-close">닫기</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
