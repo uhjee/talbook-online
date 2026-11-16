@@ -353,6 +353,8 @@ export interface PersonOpts {
   back?: boolean;
   /** true면 발밑 그림자를 만들지 않는다. 그림자를 따로 그리는 주인공에 쓴다 */
   noShadow?: boolean;
+  /** true면 윗옷, 바지, 모자를 한국군 위장 무늬로 입힌다 */
+  camo?: boolean;
 }
 
 /**
@@ -416,7 +418,9 @@ export function makePerson(o: PersonOpts): THREE.Group {
   const limb = (x: number, y: number, arm: boolean) => {
     const pivot = new THREE.Group();
     pivot.position.set(x, y, 0);
-    pivot.add(pill(arm ? o.shirt : o.pants, arm ? 0.078 : 0.1, 0.44, [0, -0.2, 0]));
+    const cloth = pill(arm ? o.shirt : o.pants, arm ? 0.078 : 0.1, 0.44, [0, -0.2, 0]);
+    if (o.camo) cloth.material = arm ? camoMat(0.42, 0.37) : camoMat(0.52, 0.37);
+    pivot.add(cloth);
     // 수가 많은 행진 대열은 손과 신발 같은 작은 부품을 빼서 그리는 양을 줄인다.
     if (!o.back) pivot.add(arm ? part(G.ballLow, skin, [0, -0.47, 0], [0.085, 0.085, 0.085]) : part(G.ball, 0x2a2420, [0, -0.45, -0.045], [0.115, 0.075, 0.17]));
     g.add(pivot);
@@ -427,8 +431,10 @@ export function makePerson(o: PersonOpts): THREE.Group {
   // 몸통은 앞뒤로 납작한 둥근 막대, 그 아래에 허리띠를 두른다.
   const torso = pill(o.shirt, 0.29, 0.74, [0, 0.83, 0]);
   torso.scale.z = 0.215;
+  if (o.camo) torso.material = camoMat(1.33, 0.62);
   g.add(torso);
-  if (!o.back) g.add(part(G.tube, darken(o.pants), [0, 0.6, 0], [0.3, 0.07, 0.225]));
+  const belt = part(G.tube, darken(o.pants), [0, 0.6, 0], [0.3, 0.07, 0.225]);
+  if (!o.back) g.add(belt);
   const armL = limb(-0.385, 1.07, true);
   const armR = limb(0.385, 1.07, true);
   const head = part(G.ball, skin, [0, 1.5, 0], [0.42, 0.42, 0.42]);
@@ -441,15 +447,23 @@ export function makePerson(o: PersonOpts): THREE.Group {
   const cap = part(G.dome, hair, [0, 1.52, 0.01], [0.44, 0.44, 0.44]);
   cap.rotation.x = 0.42;
   g.add(cap);
+  const hat: THREE.Mesh[] = [];
+  const scarf: THREE.Mesh[] = [];
   if (o.pot) {
     g.add(part(G.tube, 0x9aa0a6, [0, 1.93, 0], [0.4, 0.3, 0.4]), part(G.cube, 0x9aa0a6, [0.52, 1.98, 0], [0.3, 0.05, 0.08]));
   } else if (o.hat !== undefined) {
-    g.add(part(G.tube, o.hat, [0, 1.9, 0], [0.4, 0.2, 0.4]));
-    if (!o.back) g.add(part(G.tube, darken(o.hat), [0, 1.81, 0], [0.43, 0.05, 0.43]), part(G.cube, darken(o.hat), [0, 1.8, -0.46], [0.46, 0.035, 0.22]));
-    if (o.badge !== undefined) g.add(part(G.ballLow, o.badge, [0, 1.9, -0.4], [0.07, 0.07, 0.03]));
+    const crown = part(G.tube, o.hat, [0, 1.9, 0], [0.4, 0.2, 0.4]);
+    if (o.camo) crown.material = camoMat(2.1, 0.17);
+    hat.push(crown);
+    if (!o.back) hat.push(part(G.tube, darken(o.hat), [0, 1.81, 0], [0.43, 0.05, 0.43]), part(G.cube, darken(o.hat), [0, 1.8, -0.46], [0.46, 0.035, 0.22]));
+    if (o.badge !== undefined) hat.push(part(G.ballLow, o.badge, [0, 1.9, -0.4], [0.07, 0.07, 0.03]));
+    g.add(...hat);
   }
   if (o.armband !== undefined) armL.add(part(G.tube, o.armband, [0, -0.13, 0], [0.095, 0.1, 0.095]));
-  if (o.scarf !== undefined) g.add(part(G.tube, o.scarf, [0, 1.17, 0], [0.26, 0.09, 0.22]), part(G.cube, o.scarf, [0.1, 1.02, 0.2], [0.11, 0.3, 0.04]));
+  if (o.scarf !== undefined) {
+    scarf.push(part(G.tube, o.scarf, [0, 1.17, 0], [0.26, 0.09, 0.22]), part(G.cube, o.scarf, [0.1, 1.02, 0.2], [0.11, 0.3, 0.04]));
+    g.add(...scarf);
+  }
   if (o.pack) {
     g.add(part(G.ball, 0xc9b28a, [0, 0.92, 0.3], [0.27, 0.24, 0.2]), part(G.ballLow, 0xb39a70, [0, 1.17, 0.3], [0.09, 0.07, 0.08]));
     const strap = part(G.cube, 0x6b5a3e, [0, 0.9, -0.01], [0.07, 0.72, 0.5]);
@@ -458,7 +472,238 @@ export function makePerson(o: PersonOpts): THREE.Group {
   }
   if (!o.noShadow && !o.back) g.add(blob(0.42, 0.36));
   g.userData.parts = { legL, legR, armL, armR, head };
+  g.userData.look = { shirt: o.shirt, pants: o.pants, skin, hair, torso, belt, hat, scarf };
   return g;
+}
+
+/** 리용길의 피부색. 때가 탈수록 이 재질의 색만 바꾸므로 다른 사람과 겹치지 않는 값을 쓴다 */
+export const HERO_SKIN = 0xf2cdab;
+/** 옷이 다 벗겨져 팬티만 남는 피해 횟수 */
+const WEAR_MAX = 8;
+
+interface WearPiece {
+  obj: THREE.Object3D;
+  from: number;
+  to: number;
+}
+
+/**
+ * 리용길이 장애물에 당한 횟수만큼 옷을 찢고, 머리를 헝클고, 피부에 때와 생채기를 낸다.
+ * 1회 모자, 2~3회 소매, 4~5회 바짓단, 6회 민소매, 7회 윗옷 없음, 8회부터 팬티만 남는다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Group} g makePerson으로 만든 리용길 모델. 피부색은 HERO_SKIN이어야 한다
+ * @param {number} hits 장애물에 당한 횟수
+ */
+export function setHeroWear(g: THREE.Group, hits: number): void {
+  const lv = Math.min(WEAR_MAX, Math.max(0, hits));
+  const look = g.userData.look;
+  const { legL, legR, armL, armR } = g.userData.parts;
+  if (!g.userData.wear) g.userData.wear = buildWear(g);
+  for (const w of g.userData.wear as WearPiece[]) w.obj.visible = lv >= w.from && lv <= w.to;
+  const skin = toon(look.skin);
+  // 팔다리는 옷이 찢긴 쪽부터 맨살로 바꾼다.
+  (armL.children[0] as THREE.Mesh).material = lv >= 2 ? skin : toon(look.shirt);
+  (armR.children[0] as THREE.Mesh).material = lv >= 3 ? skin : toon(look.shirt);
+  (legL.children[0] as THREE.Mesh).material = lv >= 4 ? skin : toon(look.pants);
+  (legR.children[0] as THREE.Mesh).material = lv >= 5 ? skin : toon(look.pants);
+  (look.torso as THREE.Mesh).material = lv >= 7 ? skin : toon(look.shirt);
+  (look.belt as THREE.Mesh).visible = lv < WEAR_MAX;
+  for (const h of look.hat as THREE.Mesh[]) h.visible = lv < 1;
+  for (const s of look.scarf as THREE.Mesh[]) s.visible = lv < 3;
+  // 당할수록 피부 전체가 꾀죄죄한 색으로 바뀐다.
+  skin.color.setHex(HERO_SKIN).lerp(grime, (lv / WEAR_MAX) * 0.55);
+}
+
+const grime = new THREE.Color(0xa58868);
+
+/**
+ * 피해 단계마다 보이거나 사라질 부품(삐친 머리, 찢긴 옷자락, 구멍, 때, 생채기, 팬티)을 미리 만들어 모델에 붙인다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Group} g 리용길 모델
+ * @return {WearPiece[]} 부품과 그 부품이 보이는 피해 단계 범위
+ */
+function buildWear(g: THREE.Group): WearPiece[] {
+  const look = g.userData.look;
+  const { legL, legR, armL, armR } = g.userData.parts;
+  const out: WearPiece[] = [];
+  const put = (parent: THREE.Object3D, obj: THREE.Object3D, from: number, to = WEAR_MAX) => {
+    parent.add(obj);
+    out.push({ obj, from, to });
+  };
+  const up = new THREE.Vector3(0, 1, 0);
+
+  // 삐친 머리: 머리통 바깥으로 뻗는 뿔 모양 머리카락을 단계마다 늘린다.
+  const tufts: [number, number, number, number][] = [
+    [0.3, 0.9, 0.3, 1], [-0.5, 0.8, 0.2, 1], [0, 0.6, 0.8, 2], [0.6, 0.6, 0.5, 3], [-0.3, 0.95, -0.1, 4],
+    [-0.7, 0.5, 0.5, 5], [0.1, 0.98, 0.2, 6], [0.8, 0.55, 0.1, 6], [-0.1, 0.75, 0.65, 7], [0.45, 0.85, -0.2, 8],
+  ];
+  for (const [x, y, z, from] of tufts) {
+    const dir = new THREE.Vector3(x, y, z).normalize();
+    const tuft = part(G.cone, look.hair, [dir.x * 0.45, 1.52 + dir.y * 0.45, dir.z * 0.45], [0.07, 0.26, 0.07]);
+    tuft.quaternion.setFromUnitVectors(up, dir);
+    put(g, tuft, from);
+  }
+
+  // 찢긴 소매와 바짓단: 짧게 남은 옷자락 아래에 들쭉날쭉한 끝을 단다.
+  const stub = (color: number, r: number, len: number) => {
+    const s = new THREE.Group();
+    s.add(part(G.tube, color, [0, -len / 2 + 0.02, 0], [r, len, r]));
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.3;
+      const rag = part(G.cone, color, [Math.sin(a) * r * 0.8, -len + 0.02 - 0.03, Math.cos(a) * r * 0.8], [r * 0.42, 0.09, r * 0.42]);
+      rag.rotation.x = Math.PI;
+      s.add(rag);
+    }
+    return s;
+  };
+  put(armL, stub(look.shirt, 0.092, 0.15), 2, 5);
+  put(armR, stub(look.shirt, 0.092, 0.15), 3, 5);
+  put(legL, stub(look.pants, 0.114, 0.2), 4, 7);
+  put(legR, stub(look.pants, 0.114, 0.2), 5, 7);
+  // 윗옷이 없어지면 바지 허리가 드러나고, 바지까지 없어지면 그 자리에 팬티만 남는다.
+  put(g, part(G.tube, look.pants, [0, 0.535, 0], [0.3, 0.15, 0.228]), 7, 7);
+  const briefs = new THREE.Mesh(G.tube, briefsMat());
+  briefs.position.set(0, 0.56, 0);
+  briefs.scale.set(0.31, 0.21, 0.236);
+  put(g, briefs, WEAR_MAX);
+
+  // 옷 구멍: 맨살이 비친다. 카메라가 등을 비추므로 등 쪽에 낸다.
+  const patch = (color: number, pos: number[], scale: number[]) => part(G.ballLow, color, pos, scale);
+  put(g, patch(look.skin, [-0.19, 1.08, 0.14], [0.075, 0.06, 0.03]), 4, 6);
+  put(g, patch(look.skin, [0.2, 0.6, 0.17], [0.07, 0.07, 0.03]), 4, 6);
+  put(g, patch(look.skin, [0.2, 1.1, 0.13], [0.07, 0.055, 0.03]), 6, 6);
+  put(g, patch(look.skin, [-0.21, 0.68, 0.15], [0.06, 0.08, 0.03]), 6, 6);
+  put(g, patch(look.skin, [0.1, 0.9, -0.21], [0.08, 0.1, 0.03]), 6, 6);
+
+  // 때: 옷에 묻은 얼룩과 피부에 탄 때
+  const stain = 0x4a3a28;
+  const dirt = 0x6b5236;
+  put(g, patch(stain, [0.21, 1.0, 0.145], [0.06, 0.08, 0.03]), 1, 6);
+  put(g, patch(stain, [-0.2, 0.75, 0.16], [0.065, 0.07, 0.03]), 3, 6);
+  put(g, patch(dirt, [0.2, 1.36, -0.34], [0.07, 0.05, 0.03]), 1);
+  put(g, patch(dirt, [-0.3, 1.3, 0.21], [0.07, 0.06, 0.03]), 2);
+  put(g, patch(dirt, [0.33, 1.33, 0.13], [0.06, 0.07, 0.03]), 5);
+  put(armL, patch(dirt, [0, -0.34, 0.068], [0.045, 0.06, 0.02]), 3);
+  put(armR, patch(dirt, [0, -0.2, 0.068], [0.045, 0.07, 0.02]), 5);
+  put(legL, patch(dirt, [0, -0.2, 0.09], [0.06, 0.07, 0.02]), 5);
+  put(legR, patch(dirt, [0, -0.32, 0.09], [0.06, 0.06, 0.02]), 6);
+  put(g, patch(dirt, [-0.17, 1.02, 0.15], [0.08, 0.07, 0.03]), 7);
+  put(g, patch(dirt, [0.22, 0.7, 0.15], [0.06, 0.09, 0.03]), 7);
+
+  // 생채기: 가늘고 붉은 줄
+  const scratch = (pos: number[], tilt: number) => {
+    const s = part(G.cube, 0xc23a2e, pos, [0.1, 0.018, 0.014]);
+    s.rotation.z = tilt;
+    return s;
+  };
+  put(armL, scratch([0, -0.22, 0.078], 0.6), 2);
+  put(g, scratch([-0.33, 1.42, -0.25], -0.5), 3);
+  put(legL, scratch([0, -0.31, 0.1], -0.5), 4);
+  put(armR, scratch([0, -0.3, 0.078], -0.6), 6);
+  put(legR, scratch([0, -0.24, 0.1], 0.5), 6);
+  put(g, scratch([0.18, 1.1, 0.145], 0.5), 7);
+  put(g, scratch([-0.12, 0.6, 0.2], -0.4), 7);
+  put(g, scratch([-0.22, 0.85, 0.15], 0.7), 8);
+  return out;
+}
+
+let briefs: THREE.MeshToonMaterial | null = null;
+
+/**
+ * 팬티 재질을 반환한다. 흰 바탕에 빨간 하트 무늬다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.MeshToonMaterial} 팬티 재질
+ */
+function briefsMat(): THREE.MeshToonMaterial {
+  if (briefs) return briefs;
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 64;
+  const c = cv.getContext('2d')!;
+  c.fillStyle = '#fbfbf6';
+  c.fillRect(0, 0, 256, 64);
+  c.fillStyle = '#e0312e';
+  c.font = 'bold 26px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  for (let i = 0; i < 8; i++) c.fillText('♥', 16 + i * 32, i % 2 ? 22 : 42);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  briefs = new THREE.MeshToonMaterial({ map: tex, gradientMap: toon(0xffffff).gradientMap });
+  briefs.userData.shared = true;
+  return briefs;
+}
+
+let camoTex: THREE.CanvasTexture | null = null;
+const camos = new Map<string, THREE.MeshToonMaterial>();
+
+/**
+ * 한국군 전투복의 화강암 디지털 무늬 재질을 반환한다.
+ * 흙색 바탕에 수풀색, 침엽수색, 나무줄기색, 목탄색의 네모난 점이 가로로 길게 뭉친 얼룩을 이룬다.
+ * 부위마다 둘레와 길이가 달라서, 점 크기가 5cm 안팎으로 같아지도록 반복 횟수를 따로 받는다.
+ * @author heojeehaeng(claude)
+ * @param {number} ru 둘레 방향 반복 횟수
+ * @param {number} rv 길이 방향 반복 횟수
+ * @return {THREE.MeshToonMaterial} 위장 무늬 재질. 같은 반복 횟수끼리 한 장을 함께 쓴다
+ */
+function camoMat(ru: number, rv: number): THREE.MeshToonMaterial {
+  const key = `${ru}x${rv}`;
+  let m = camos.get(key);
+  if (m) return m;
+  if (!camoTex) camoTex = camoTexture();
+  // 그림은 한 장을 함께 쓰고 반복 횟수만 부위별로 다르게 둔다.
+  const tex = camoTex.clone();
+  tex.repeat.set(ru, rv);
+  tex.needsUpdate = true;
+  m = new THREE.MeshToonMaterial({ map: tex, gradientMap: toon(0xffffff).gradientMap });
+  m.userData.shared = true;
+  camos.set(key, m);
+  return m;
+}
+
+/**
+ * 화강암 디지털 무늬를 그린다. 가로세로 24칸의 격자에 색 점을 찍는다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.CanvasTexture} 이어 붙여도 끊기지 않는 위장 무늬
+ */
+function camoTexture(): THREE.CanvasTexture {
+  const N = 24;
+  const cell = 8;
+  // 색 번호: 0 흙색, 1 수풀색, 2 침엽수색, 3 나무줄기색, 4 목탄색
+  const colors = ['#b3a47f', '#6f7d4e', '#3d4d36', '#5f4b37', '#22251f'];
+  const grid = new Uint8Array(N * N);
+  // 시드를 고정해 새로 만들어도 같은 무늬가 나오게 한다.
+  let seed = 20110;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  // [색 번호, 얼룩 수, 얼룩 하나의 점 수]: 넓은 색부터 깔고 어두운 색을 작게 얹는다.
+  const layers = [[1, 14, 16], [2, 13, 14], [3, 9, 8], [4, 12, 2]];
+  for (const [color, blobs, size] of layers) {
+    for (let b = 0; b < blobs; b++) {
+      let x = Math.floor(rnd() * N);
+      let y = Math.floor(rnd() * N);
+      for (let i = 0; i < size; i++) {
+        grid[y * N + x] = color;
+        // 얼룩이 가로로 길어지도록 좌우로 더 자주 번진다.
+        if (rnd() < 0.68) x = (x + (rnd() < 0.5 ? 1 : N - 1)) % N;
+        else y = (y + (rnd() < 0.5 ? 1 : N - 1)) % N;
+      }
+    }
+  }
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N * cell;
+  const c = cv.getContext('2d')!;
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      c.fillStyle = colors[grid[y * N + x]];
+      c.fillRect(x * cell, y * cell, cell, cell);
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  // 점의 네모난 모서리가 뭉개지지 않게 한다.
+  tex.magFilter = THREE.NearestFilter;
+  return tex;
 }
 
 /**

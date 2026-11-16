@@ -21,6 +21,8 @@ const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35, fac
 const PARTY: PersonOpts = { shirt: 0x34404f, pants: 0x2b3440, hat: 0x34404f, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
 const PARTY_GUN: PersonOpts = { shirt: 0x6a3a2c, pants: 0x2b3440, hat: 0x6a3a2c, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
 const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f, face: 'angry', badge: 0xc0261c };
+/** 한국군 병사. 화강암 디지털 무늬 전투복과 전투모를 입는다. 색 값은 무늬가 안 쓰이는 허리띠와 모자 테에만 쓰인다 */
+export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
 const PAIR_GAP = 50;
 /** 감시자의 시야와 다음 감시자의 시야 사이에 비워 두는 거리(m) */
@@ -547,7 +549,7 @@ function ssDecor(c: Ctx, put: Put): Decor {
     const post = new THREE.Group();
     post.add(box(2.2, 0.2, 2.2, 0x4a5a48, 0, 2.5, 0));
     for (const px of [-1, 1]) for (const pz of [-1, 1]) post.add(box(0.15, 2.5, 0.15, 0x4a5a48, px, 1.25, pz));
-    const guard = makePerson({ shirt: 0x4b5d3a, pants: 0x4b5d3a, hat: 0x4b5d3a, face: 'sleepy' });
+    const guard = makePerson({ ...ROK_SOLDIER, face: 'sleepy' });
     guard.rotation.set(0.25, Math.PI, 0.3);
     post.add(guard);
     const zzz = makeSign('Zzz', 0.9, 0.5, '#ffffff', '#3355aa', 0);
@@ -568,7 +570,7 @@ function ssDecor(c: Ctx, put: Put): Decor {
   deer.add(glow);
   for (const f of [0.15, 0.45, 0.75]) put(deer.clone(), f < 0.4 ? -11 : 11.5, stagePos('ss', f));
   // 계절과 상관없이 제초 중인 이등병
-  const mower = put(makePerson({ shirt: 0x4b5d3a, pants: 0x4b5d3a, hat: 0x4b5d3a }), 10.5, stagePos('ss', 0.3), Math.PI * 0.8);
+  const mower = put(makePerson(ROK_SOLDIER), 10.5, stagePos('ss', 0.3), Math.PI * 0.8);
   mower.rotation.x = 0.5;
   put(makeSign('무한 제초 중', 1.6, 0.5, '#f4f0e6', '#2e6b34', 0.9), 11.6, stagePos('ss', 0.3) + 1, -0.3);
 
@@ -592,11 +594,17 @@ function ssDecor(c: Ctx, put: Put): Decor {
   door.add(box(1.6, 2.5, 0.1, 0x7a5230, 0.8, 1.25, 0), box(0.1, 0.1, 0.12, 0xd9c36a, 1.4, 1.2, 0.08));
   c.addProp(door, COURSE_LEN);
 
-  const greeter = makePerson({ shirt: 0xf2f2f2, pants: 0x4b5d3a, face: 'smile' });
+  const greeter = makePerson({ ...ROK_SOLDIER, face: 'grin' });
   greeter.rotation.y = Math.PI;
   greeter.position.set(0, 0, z - 0.7);
   // 라면 그릇
   greeter.add(box(0.4, 0.2, 0.4, 0xc0392b, 0, 0.95, -0.4));
+  // 문 안쪽 양옆에서 함께 맞이하는 생활관 인원
+  for (const sx of [-0.58, 0.58]) {
+    const mate = makePerson({ ...ROK_SOLDIER, face: 'grin', noShadow: true });
+    mate.position.set(sx, 0, 0.95);
+    greeter.add(mate);
+  }
   greeter.visible = false;
   c.addProp(greeter, COURSE_LEN);
   return { door, greeter };

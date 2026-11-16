@@ -364,7 +364,7 @@ export class PhoneWalker implements Entity {
    * @param {number} sway 좌우로 비틀거리는 폭(m)
    */
   constructor(c: Ctx, public d: number, private sway: number) {
-    this.g = makePerson({ shirt: 0x4b5d3a, pants: 0x435334, hat: 0x4b5d3a, face: 'smile' });
+    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, face: 'smile' });
     this.g.rotation.y = Math.PI;
     // 얼굴 앞에 든 큼직한 휴대폰. 플레이어 쪽으로는 뒷면과 카메라 렌즈가 보인다.
     const phone = new THREE.Group();

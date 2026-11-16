@@ -300,6 +300,7 @@ class Game implements Ctx {
    */
   private arrest(msg: string): void {
     this.detections++;
+    this.player.hits++;
     this.player.respawn(this.checkpoint, 1.5);
     this.world.clearEntities();
     this.entities = buildEntities(this, Game.newSeed());
@@ -321,7 +322,7 @@ class Game implements Ctx {
       [2.2, () => {
         this.decor.greeter.visible = true;
         this.decor.greeter.position.z = -COURSE_LEN + 0.7;
-        this.toast('"누구세요?"', 1.6);
+        this.toast('"이라시야마쎼이!!!!!!!!"', 1.7);
       }],
       [4.0, () => this.toast('간부: "CCTV로 발견한 걸로 하자"', 2)],
       [6.0, () => this.finish()],

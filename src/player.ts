@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
 import { Input } from './input';
-import { makePerson, swingPerson } from './models';
+import { HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
 
 const GRAVITY = 22;
 const JUMP_V = 7.6;
@@ -26,6 +26,9 @@ export class Player {
   /** 마지막으로 넘어진 뒤 흐른 시간(초) */
   cleanT = 0;
   falls = 0;
+  /** 장애물에 당한 횟수(넘어짐과 발각). 옷과 몸이 망가지는 정도를 정한다 */
+  hits = 0;
+  private wear = -1;
   /** 부스터가 켜져 있는 남은 시간(초) */
   boostT = 0;
   private runPhase = 0;
@@ -35,7 +38,7 @@ export class Player {
    * @author heojeehaeng(claude)
    */
   constructor() {
-    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true });
+    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, skin: HERO_SKIN, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true });
     // 넘어짐과 엎드리기를 몸 가운데 기준으로 돌리기 위해 관절을 허리 높이에 둔다.
     this.model.position.y = -0.9;
     this.pivot.position.y = 0.9;
@@ -85,6 +88,7 @@ export class Player {
     this.state = 'fall';
     this.fallT = duration;
     this.falls++;
+    this.hits++;
     this.cleanT = 0;
     this.slideT = 0;
     this.hiding = false;
@@ -154,6 +158,11 @@ export class Player {
 
   private pose(dt: number): void {
     this.group.position.set(this.x, this.y, -this.d);
+    // 당한 횟수가 바뀌었을 때만 옷과 몸 상태를 다시 맞춘다.
+    if (this.hits !== this.wear) {
+      this.wear = this.hits;
+      setHeroWear(this.model, this.hits);
+    }
     this.group.visible = this.invulnT <= 0 || Math.floor(this.invulnT * 16) % 2 === 0;
     const p = this.pivot;
     if (this.state === 'fall') {
