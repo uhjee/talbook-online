@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const mats = new Map<number, THREE.MeshLambertMaterial>();
 const toons = new Map<number, THREE.MeshToonMaterial>();
@@ -79,16 +80,41 @@ function shared<T extends THREE.BufferGeometry>(geo: T): T {
   return geo;
 }
 
+/**
+ * 둥근 막대 도형의 무늬 좌표를 길이에 비례하게 고친다.
+ * 기본 좌표는 양 끝의 둥근 부분에 대부분을 쓰고 가운데 곧은 부분에는 조금만 써서, 무늬를 입히면 가운데가 세로로 길게 늘어난다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.CapsuleGeometry} geo 반지름 1, 곧은 부분 길이 2인 둥근 막대
+ * @return {THREE.CapsuleGeometry} 좌표를 고친 도형
+ */
+function evenPill(geo: THREE.CapsuleGeometry): THREE.CapsuleGeometry {
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  const total = Math.PI + 2;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    // 아래 둥근 끝, 곧은 부분, 위 둥근 끝의 순서로 겉면을 따라 잰 거리를 구한다.
+    let along = Math.PI / 2 + (y + 1);
+    if (y < -1) along = Math.PI / 2 + Math.asin(Math.max(-1, y + 1));
+    else if (y > 1) along = Math.PI / 2 + 2 + Math.asin(Math.min(1, y - 1));
+    uv.setY(i, along / total);
+  }
+  uv.needsUpdate = true;
+  return geo;
+}
+
 /** 캐릭터와 동물이 함께 쓰는 기본 도형 */
 const G = {
   ball: shared(new THREE.SphereGeometry(1, 18, 14)),
   ballLow: shared(new THREE.SphereGeometry(1, 10, 8)),
   dome: shared(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
-  pill: shared(new THREE.CapsuleGeometry(1, 2, 5, 12)),
+  pill: shared(evenPill(new THREE.CapsuleGeometry(1, 2, 5, 12))),
   tube: shared(new THREE.CylinderGeometry(1, 1, 1, 14)),
   cone: shared(new THREE.ConeGeometry(1, 1, 6)),
   cube: shared(new THREE.BoxGeometry(1, 1, 1)),
   disc: shared(new THREE.CircleGeometry(1, 18)),
+  /** 위가 넓고 아래가 좁은 원기둥. 윗면이 넓은 군모에 쓴다 */
+  flare: shared(new THREE.CylinderGeometry(1, 0.7, 1, 16)),
   /** 위쪽 절반만 있는 원기둥. 등을 덮는 줄무늬에 쓴다 */
   half: shared(new THREE.CylinderGeometry(1, 1, 1, 12, 1, false, -Math.PI / 2, Math.PI)),
 };
@@ -358,6 +384,12 @@ export interface PersonOpts {
   noShadow?: boolean;
   /** true면 윗옷, 바지, 모자를 한국군 위장 무늬로 입힌다 */
   camo?: boolean;
+  /** 모자 모양. cap은 챙 달린 작업모(기본), officer는 윗면이 넓은 군모, helmet은 등불 달린 안전모다 */
+  hatKind?: 'cap' | 'officer' | 'helmet';
+  /** true면 종아리까지 올라오는 군화를 신긴다 */
+  boots?: boolean;
+  /** true면 옷 부품을 하나로 합치지 않고 따로 둔다. 옷이 찢어지는 리용길에 쓴다 */
+  wear?: boolean;
 }
 
 /**
@@ -408,8 +440,55 @@ function darken(color: number): number {
   return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
+const fused = new Map<string, THREE.BufferGeometry>();
+let fusedMat: THREE.MeshToonMaterial | null = null;
+
+/**
+ * 한 관절에 붙은 단색 부품들을 꼭짓점 색을 가진 도형 하나로 합친다. 부품 수가 늘어도 그리는 횟수는 관절당 한 번으로 유지된다.
+ * 합친 도형은 옷차림과 관절 이름으로 기억해 두고 같은 옷차림의 사람끼리 함께 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Object3D} parent 부품이 붙어 있는 관절
+ * @param {string} key 옷차림과 관절을 구분하는 이름
+ */
+function fuse(parent: THREE.Object3D, key: string): void {
+  // 무늬가 있는 재질(위장 무늬)과 반투명한 재질(발밑 그림자)은 색 하나로 바꿀 수 없으므로 합치지 않는다.
+  const solid = parent.children.filter((c) => {
+    const mt = (c as THREE.Mesh).material as THREE.MeshToonMaterial | undefined;
+    return (c as THREE.Mesh).isMesh && mt && !Array.isArray(mt) && !mt.map && !mt.transparent;
+  }) as THREE.Mesh[];
+  if (solid.length < 2) return;
+  let geo = fused.get(key);
+  if (!geo) {
+    const list = solid.map((mesh) => {
+      mesh.updateMatrix();
+      const one = mesh.geometry.clone().applyMatrix4(mesh.matrix);
+      one.deleteAttribute('uv');
+      const n = one.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      const c = (mesh.material as THREE.MeshToonMaterial).color;
+      for (let k = 0; k < n; k++) col.set([c.r, c.g, c.b], k * 3);
+      one.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return one;
+    });
+    geo = mergeGeometries(list);
+    // 복사본은 원래 도형의 표시까지 물려받으므로 합친 도형에는 표시를 새로 단다.
+    geo.userData = { shared: true };
+    for (const one of list) one.dispose();
+    fused.set(key, geo);
+  }
+  if (!fusedMat) {
+    fusedMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toon(0xffffff).gradientMap });
+    fusedMat.userData.shared = true;
+  }
+  parent.remove(...solid);
+  parent.add(new THREE.Mesh(geo, fusedMat));
+}
+
+const SHOE = 0x2a2420;
+
 /**
  * 머리가 큰 2.5등신 사람 모델을 만든다. 기본 방향은 -z(달리는 방향)이다.
+ * 팔다리는 어깨와 엉덩이, 팔꿈치와 무릎에서 꺾인다.
  * @author heojeehaeng(claude)
  * @param {PersonOpts} o 옷, 모자, 표정, 소품
  * @return {THREE.Group} 사람 모델. userData.parts에 팔다리 관절이 들어 있다
@@ -418,33 +497,79 @@ export function makePerson(o: PersonOpts): THREE.Group {
   const g = new THREE.Group();
   const skin = o.skin ?? 0xf3cfae;
   const hair = o.hair ?? 0x1c1612;
-  const limb = (x: number, y: number, arm: boolean) => {
+  const key = JSON.stringify(o);
+  const limb = (name: string, x: number, y: number, arm: boolean) => {
     const pivot = new THREE.Group();
     pivot.position.set(x, y, 0);
-    const cloth = pill(arm ? o.shirt : o.pants, arm ? 0.078 : 0.1, 0.44, [0, -0.2, 0]);
-    if (o.camo) cloth.material = arm ? camoMat(0.42, 0.37) : camoMat(0.52, 0.37);
-    pivot.add(cloth);
-    // 수가 많은 행진 대열은 손과 신발 같은 작은 부품을 빼서 그리는 양을 줄인다.
-    if (!o.back) pivot.add(arm ? part(G.ballLow, skin, [0, -0.47, 0], [0.085, 0.085, 0.085]) : part(G.ball, 0x2a2420, [0, -0.45, -0.045], [0.115, 0.075, 0.17]));
+    const color = arm ? o.shirt : o.pants;
+    const camo = o.camo ? (arm ? camoMat(0.42, 0.3) : camoMat(0.52, 0.32)) : null;
     g.add(pivot);
-    return pivot;
+    // 수가 많은 행진 대열은 관절과 손발을 빼고 막대 하나로 그려 그리는 양을 줄인다.
+    if (o.back) {
+      const whole = pill(color, arm ? 0.078 : 0.1, 0.44, [0, -0.2, 0]);
+      pivot.add(whole);
+      pivot.userData.cloth = [whole];
+      return { pivot, lower: null };
+    }
+    // 위아래 막대의 둥근 끝이 관절 자리에서 겹쳐서, 꺾여도 틈이 보이지 않는다.
+    const jy = arm ? -0.2 : -0.22;
+    const upper = arm ? pill(color, 0.08, 0.35, [0, -0.105, 0]) : pill(color, 0.104, 0.384, [0, -0.132, 0]);
+    const lower = new THREE.Group();
+    lower.position.y = jy;
+    const under = arm ? pill(color, 0.07, 0.32, [0, -0.09, 0]) : pill(color, 0.092, 0.332, [0, -0.074, 0]);
+    if (camo) upper.material = under.material = camo;
+    pivot.add(upper, lower);
+    lower.add(under);
+    if (arm) {
+      // 손과 엄지
+      lower.add(part(G.ballLow, skin, [0, -0.27, 0], [0.085, 0.085, 0.085]), part(G.ballLow, skin, [x < 0 ? 0.05 : -0.05, -0.25, -0.06], [0.035, 0.045, 0.035]));
+    } else {
+      // 신발과 밝은 밑창. 뒤로 찬 발바닥이 카메라에 보인다.
+      lower.add(part(G.ball, SHOE, [0, -0.225, -0.045], [0.115, 0.075, 0.17]), part(G.ballLow, 0x9a8a72, [0, -0.278, -0.045], [0.12, 0.03, 0.178]));
+      if (o.boots) lower.add(part(G.tube, SHOE, [0, -0.13, 0], [0.099, 0.17, 0.099]));
+    }
+    pivot.userData.cloth = [upper, under];
+    pivot.userData.lower = lower;
+    pivot.userData.jointY = jy;
+    if (!o.wear) fuse(lower, `${key}:${name}`);
+    return { pivot, lower };
   };
-  const legL = limb(-0.135, 0.5, false);
-  const legR = limb(0.135, 0.5, false);
-  // 몸통은 앞뒤로 납작한 둥근 막대, 그 아래에 허리띠를 두른다.
+  const { pivot: legL, lower: kneeL } = limb('legL', -0.135, 0.5, false);
+  const { pivot: legR, lower: kneeR } = limb('legR', 0.135, 0.5, false);
+  // 몸통은 앞뒤로 납작한 둥근 막대다. 위에는 어깨, 아래에는 골반을 붙여 팔다리가 몸에서 뻗어 나오게 한다.
   const torso = pill(o.shirt, 0.29, 0.74, [0, 0.83, 0]);
   torso.scale.z = 0.215;
-  if (o.camo) torso.material = camoMat(1.33, 0.62);
-  g.add(torso);
+  let shoulders = pill(o.shirt, 0.105, 0.94, [0, 1.07, 0], 'x');
+  if (o.camo) {
+    torso.material = camoMat(1.33, 0.62);
+    // 둥근 막대는 뾰족한 양 끝으로 무늬가 모여 줄무늬처럼 보이므로, 위장 무늬 어깨는 끝이 평평한 원기둥으로 만든다.
+    shoulders = part(G.tube, o.shirt, [0, 1.07, 0], [0.092, 0.78, 0.092]);
+    shoulders.rotation.z = Math.PI / 2;
+    shoulders.material = camoMat(0.48, 0.65);
+  }
+  const hips = part(G.ball, o.pants, [0, 0.5, 0], [0.275, 0.15, 0.2]);
+  g.add(torso, shoulders, hips);
   const belt = part(G.tube, darken(o.pants), [0, 0.6, 0], [0.3, 0.07, 0.225]);
-  if (!o.back) g.add(belt);
-  const armL = limb(-0.385, 1.07, true);
-  const armR = limb(0.385, 1.07, true);
+  // 앞섶, 가슴 주머니, 허리띠 쇠
+  const trim: THREE.Mesh[] = [];
+  if (!o.back) {
+    g.add(belt);
+    const dark = darken(o.shirt);
+    trim.push(part(G.cube, 0xd9c36a, [0, 0.6, -0.225], [0.1, 0.075, 0.03]));
+    trim.push(part(G.cube, dark, [0, 0.88, -0.212], [0.035, 0.44, 0.02]));
+    trim.push(part(G.cube, dark, [-0.15, 0.98, -0.185], [0.11, 0.085, 0.03]), part(G.cube, dark, [0.15, 0.98, -0.185], [0.11, 0.085, 0.03]));
+    g.add(...trim);
+  }
+  const { pivot: armL, lower: elbowL } = limb('armL', -0.385, 1.07, true);
+  const { pivot: armR, lower: elbowR } = limb('armR', 0.385, 1.07, true);
   const head = part(G.ball, skin, [0, 1.5, 0], [0.42, 0.42, 0.42]);
   g.add(head);
   if (!o.back) {
     g.add(part(G.ballLow, skin, [-0.41, 1.47, 0], [0.07, 0.09, 0.06]), part(G.ballLow, skin, [0.41, 1.47, 0], [0.07, 0.09, 0.06]));
     addFace(g, o.face ?? 'calm', skin);
+    // 이마로 내려온 앞머리와 구레나룻
+    g.add(part(G.ballLow, hair, [-0.17, 1.775, -0.27], [0.15, 0.07, 0.1]), part(G.ballLow, hair, [0.13, 1.79, -0.28], [0.17, 0.065, 0.1]));
+    g.add(part(G.ballLow, hair, [-0.385, 1.6, -0.03], [0.06, 0.14, 0.13]), part(G.ballLow, hair, [0.385, 1.6, -0.03], [0.06, 0.14, 0.13]));
   }
   // 뒤통수를 덮는 머리카락. 앞쪽을 들어 올려 이마가 드러나게 한다.
   const cap = part(G.dome, hair, [0, 1.52, 0.01], [0.44, 0.44, 0.44]);
@@ -453,30 +578,75 @@ export function makePerson(o: PersonOpts): THREE.Group {
   const hat: THREE.Mesh[] = [];
   const scarf: THREE.Mesh[] = [];
   if (o.pot) {
-    g.add(part(G.tube, 0x9aa0a6, [0, 1.93, 0], [0.4, 0.3, 0.4]), part(G.cube, 0x9aa0a6, [0.52, 1.98, 0], [0.3, 0.05, 0.08]));
+    g.add(part(G.tube, 0x9aa0a6, [0, 1.93, 0], [0.4, 0.3, 0.4]), part(G.tube, 0x7d8389, [0, 1.79, 0], [0.425, 0.035, 0.425]), part(G.cube, 0x9aa0a6, [0.52, 1.98, 0], [0.3, 0.05, 0.08]));
   } else if (o.hat !== undefined) {
-    const crown = part(G.tube, o.hat, [0, 1.9, 0], [0.4, 0.2, 0.4]);
-    if (o.camo) crown.material = camoMat(2.1, 0.17);
-    hat.push(crown);
-    if (!o.back) hat.push(part(G.tube, darken(o.hat), [0, 1.81, 0], [0.43, 0.05, 0.43]), part(G.cube, darken(o.hat), [0, 1.8, -0.46], [0.46, 0.035, 0.22]));
-    if (o.badge !== undefined) hat.push(part(G.ballLow, o.badge, [0, 1.9, -0.4], [0.07, 0.07, 0.03]));
+    hat.push(...makeHat(o));
     g.add(...hat);
   }
-  if (o.armband !== undefined) armL.add(part(G.tube, o.armband, [0, -0.13, 0], [0.095, 0.1, 0.095]));
+  if (o.armband !== undefined) armL.add(part(G.tube, o.armband, [0, -0.11, 0], [0.097, 0.1, 0.097]));
   if (o.scarf !== undefined) {
     scarf.push(part(G.tube, o.scarf, [0, 1.17, 0], [0.26, 0.09, 0.22]), part(G.cube, o.scarf, [0.1, 1.02, 0.2], [0.11, 0.3, 0.04]));
     g.add(...scarf);
   }
   if (o.pack) {
-    g.add(part(G.ball, 0xc9b28a, [0, 0.92, 0.3], [0.27, 0.24, 0.2]), part(G.ballLow, 0xb39a70, [0, 1.17, 0.3], [0.09, 0.07, 0.08]));
+    // 등에 멘 보따리와 그 위에 얹은 둘둘 만 담요
+    g.add(part(G.ball, 0xc9b28a, [0, 0.9, 0.3], [0.27, 0.24, 0.2]), pill(0x8c7a5a, 0.075, 0.56, [0, 1.15, 0.3], 'x'));
+    g.add(part(G.cube, 0x6b5a3e, [-0.19, 1.15, 0.3], [0.03, 0.16, 0.16]), part(G.cube, 0x6b5a3e, [0.19, 1.15, 0.3], [0.03, 0.16, 0.16]));
     const strap = part(G.cube, 0x6b5a3e, [0, 0.9, -0.01], [0.07, 0.72, 0.5]);
     strap.rotation.z = 0.5;
     g.add(strap);
   }
+  // 옷이 찢어지는 리용길만 부품을 따로 두고, 나머지는 몸에 붙은 부품을 하나로 합친다.
+  if (!o.wear) fuse(g, `${key}:body`);
   if (!o.noShadow && !o.back) g.add(blob(0.42, 0.36));
-  g.userData.parts = { legL, legR, armL, armR, head };
-  g.userData.look = { shirt: o.shirt, pants: o.pants, skin, hair, torso, belt, hat, scarf };
+  g.userData.parts = { legL, legR, armL, armR, head, kneeL, kneeR, elbowL, elbowR };
+  g.userData.look = { shirt: o.shirt, pants: o.pants, skin, hair, torso, shoulders, hips, trim, belt, hat, scarf };
   return g;
+}
+
+/**
+ * 모자 부품을 모양에 맞춰 만든다. 얼굴이 -z를 보므로 챙은 -z 쪽에 단다.
+ * @author heojeehaeng(claude)
+ * @param {PersonOpts} o 모자 색, 모양, 표식이 든 옷차림
+ * @return {THREE.Mesh[]} 모자 부품
+ */
+function makeHat(o: PersonOpts): THREE.Mesh[] {
+  const color = o.hat!;
+  const dark = darken(color);
+  const out: THREE.Mesh[] = [];
+  const brim = (c: number, y: number, w: number) => {
+    const b = part(G.ballLow, c, [0, y, -0.42], [w, 0.03, 0.21]);
+    b.rotation.x = -0.16;
+    return b;
+  };
+  if (o.hatKind === 'helmet') {
+    // 안전모: 둥근 통, 빙 두른 챙, 정수리의 보강대, 이마의 등불
+    out.push(part(G.dome, color, [0, 1.7, 0], [0.465, 0.37, 0.465]), part(G.tube, dark, [0, 1.71, 0], [0.52, 0.035, 0.52]));
+    if (!o.back) out.push(pill(dark, 0.05, 0.86, [0, 1.995, 0], 'z'), part(G.tube, 0x3a3a3a, [0, 1.86, -0.44], [0.09, 0.07, 0.09]), part(G.ballLow, 0xfff1a8, [0, 1.86, -0.49], [0.07, 0.07, 0.03]));
+    return out;
+  }
+  if (o.hatKind === 'officer') {
+    // 군모: 머리띠 위로 윗면이 넓게 퍼지고 앞이 들린다.
+    out.push(part(G.tube, o.badge !== undefined ? 0xb3261c : dark, [0, 1.84, 0], [0.412, 0.12, 0.412]));
+    const top = part(G.flare, color, [0, 1.98, 0.02], [0.58, 0.17, 0.58]);
+    top.rotation.x = 0.2;
+    out.push(top);
+    if (!o.back) out.push(brim(0x17140f, 1.79, 0.3));
+    if (o.badge !== undefined) out.push(part(G.ballLow, 0xf0c020, [0, 1.95, -0.5], [0.075, 0.075, 0.035]));
+    return out;
+  }
+  if (o.camo) {
+    // 전투모: 윗면이 평평한 통 모양이다.
+    const crown = part(G.tube, color, [0, 1.9, 0], [0.4, 0.2, 0.4]);
+    crown.material = camoMat(2.1, 0.17);
+    out.push(crown);
+  } else {
+    // 작업모: 머리를 둥글게 덮는다.
+    out.push(part(G.dome, color, [0, 1.74, 0], [0.447, 0.31, 0.447]));
+  }
+  if (!o.back) out.push(part(G.tube, dark, [0, 1.79, 0], [o.camo ? 0.415 : 0.462, 0.055, o.camo ? 0.415 : 0.462]), brim(dark, 1.78, 0.31));
+  if (o.badge !== undefined) out.push(part(G.ballLow, o.badge, [0, 1.9, -0.4], [0.07, 0.07, 0.03]));
+  return out;
 }
 
 /** 리용길의 피부색. 때가 탈수록 이 재질의 색만 바꾸므로 다른 사람과 겹치지 않는 값을 쓴다 */
@@ -504,13 +674,20 @@ export function setHeroWear(g: THREE.Group, hits: number): void {
   if (!g.userData.wear) g.userData.wear = buildWear(g);
   for (const w of g.userData.wear as WearPiece[]) w.obj.visible = lv >= w.from && lv <= w.to;
   const skin = toon(look.skin);
+  const dress = (limb: THREE.Group, bare: boolean, color: number) => {
+    for (const c of limb.userData.cloth as THREE.Mesh[]) c.material = bare ? skin : toon(color);
+  };
   // 팔다리는 옷이 찢긴 쪽부터 맨살로 바꾼다.
-  (armL.children[0] as THREE.Mesh).material = lv >= 2 ? skin : toon(look.shirt);
-  (armR.children[0] as THREE.Mesh).material = lv >= 3 ? skin : toon(look.shirt);
-  (legL.children[0] as THREE.Mesh).material = lv >= 4 ? skin : toon(look.pants);
-  (legR.children[0] as THREE.Mesh).material = lv >= 5 ? skin : toon(look.pants);
+  dress(armL, lv >= 2, look.shirt);
+  dress(armR, lv >= 3, look.shirt);
+  dress(legL, lv >= 4, look.pants);
+  dress(legR, lv >= 5, look.pants);
+  // 민소매가 되면 어깨가 먼저 드러나고, 그다음에 윗옷이 통째로 없어진다.
+  (look.shoulders as THREE.Mesh).material = lv >= 6 ? skin : toon(look.shirt);
   (look.torso as THREE.Mesh).material = lv >= 7 ? skin : toon(look.shirt);
+  for (const t of look.trim as THREE.Mesh[]) t.visible = lv < 7;
   (look.belt as THREE.Mesh).visible = lv < WEAR_MAX;
+  (look.hips as THREE.Mesh).visible = lv < WEAR_MAX;
   for (const h of look.hat as THREE.Mesh[]) h.visible = lv < 1;
   for (const s of look.scarf as THREE.Mesh[]) s.visible = lv < 3;
   // 당할수록 피부 전체가 꾀죄죄한 색으로 바뀐다.
@@ -532,6 +709,13 @@ function buildWear(g: THREE.Group): WearPiece[] {
   const put = (parent: THREE.Object3D, obj: THREE.Object3D, from: number, to = WEAR_MAX) => {
     parent.add(obj);
     out.push({ obj, from, to });
+  };
+  // 팔다리에 붙이는 부품은 팔꿈치나 무릎보다 아래에 있으면 아래 마디에 붙여, 관절이 꺾일 때 함께 움직이게 한다.
+  const putLimb = (limb: THREE.Group, obj: THREE.Object3D, from: number, to = WEAR_MAX) => {
+    const jy = limb.userData.jointY as number;
+    if (obj.position.y >= jy) return put(limb, obj, from, to);
+    obj.position.y -= jy;
+    put(limb.userData.lower as THREE.Object3D, obj, from, to);
   };
   const up = new THREE.Vector3(0, 1, 0);
 
@@ -586,10 +770,10 @@ function buildWear(g: THREE.Group): WearPiece[] {
   put(g, patch(dirt, [0.2, 1.36, -0.34], [0.07, 0.05, 0.03]), 1);
   put(g, patch(dirt, [-0.3, 1.3, 0.21], [0.07, 0.06, 0.03]), 2);
   put(g, patch(dirt, [0.33, 1.33, 0.13], [0.06, 0.07, 0.03]), 5);
-  put(armL, patch(dirt, [0, -0.34, 0.068], [0.045, 0.06, 0.02]), 3);
-  put(armR, patch(dirt, [0, -0.2, 0.068], [0.045, 0.07, 0.02]), 5);
-  put(legL, patch(dirt, [0, -0.2, 0.09], [0.06, 0.07, 0.02]), 5);
-  put(legR, patch(dirt, [0, -0.32, 0.09], [0.06, 0.06, 0.02]), 6);
+  putLimb(armL, patch(dirt, [0, -0.34, 0.068], [0.045, 0.06, 0.02]), 3);
+  putLimb(armR, patch(dirt, [0, -0.13, 0.072], [0.045, 0.07, 0.02]), 5);
+  putLimb(legL, patch(dirt, [0, -0.14, 0.096], [0.06, 0.07, 0.02]), 5);
+  putLimb(legR, patch(dirt, [0, -0.32, 0.09], [0.06, 0.06, 0.02]), 6);
   put(g, patch(dirt, [-0.17, 1.02, 0.15], [0.08, 0.07, 0.03]), 7);
   put(g, patch(dirt, [0.22, 0.7, 0.15], [0.06, 0.09, 0.03]), 7);
 
@@ -599,11 +783,11 @@ function buildWear(g: THREE.Group): WearPiece[] {
     s.rotation.z = tilt;
     return s;
   };
-  put(armL, scratch([0, -0.22, 0.078], 0.6), 2);
+  putLimb(armL, scratch([0, -0.12, 0.084], 0.6), 2);
   put(g, scratch([-0.33, 1.42, -0.25], -0.5), 3);
-  put(legL, scratch([0, -0.31, 0.1], -0.5), 4);
-  put(armR, scratch([0, -0.3, 0.078], -0.6), 6);
-  put(legR, scratch([0, -0.24, 0.1], 0.5), 6);
+  putLimb(legL, scratch([0, -0.31, 0.1], -0.5), 4);
+  putLimb(armR, scratch([0, -0.3, 0.078], -0.6), 6);
+  putLimb(legR, scratch([0, -0.13, 0.106], 0.5), 6);
   put(g, scratch([0.18, 1.1, 0.145], 0.5), 7);
   put(g, scratch([-0.12, 0.6, 0.2], -0.4), 7);
   put(g, scratch([-0.22, 0.85, 0.15], 0.7), 8);
@@ -710,19 +894,30 @@ function camoTexture(): THREE.CanvasTexture {
 }
 
 /**
- * 사람 모델의 팔다리를 달리기 박자에 맞춰 흔든다.
+ * 사람 모델의 팔다리를 달리기 박자에 맞춰 흔든다. 발을 앞으로 가져올 때 무릎을 접고, 달리는 동안 팔꿈치를 굽힌다.
  * @author heojeehaeng(claude)
  * @param {THREE.Group} p makePerson으로 만든 모델
  * @param {number} phase 흔들림 위상(rad)
- * @param {number} amp 흔들림 크기(rad)
+ * @param {number} amp 흔들림 크기(rad). 0이면 차렷 자세가 된다
  */
 export function swingPerson(p: THREE.Group, phase: number, amp: number): void {
-  const { legL, legR, armL, armR } = p.userData.parts;
-  const s = Math.sin(phase) * amp;
+  const { legL, legR, armL, armR, kneeL, kneeR, elbowL, elbowR } = p.userData.parts;
+  const sin = Math.sin(phase);
+  const s = sin * amp;
   legL.rotation.x = s;
   legR.rotation.x = -s;
   armL.rotation.x = -s;
   armR.rotation.x = s;
+  // 행진 대열처럼 관절 없이 만든 모델은 여기까지만 움직인다.
+  if (!kneeL) return;
+  const k = Math.min(1, amp);
+  const cos = Math.cos(phase);
+  // 뒤로 찬 다리가 앞으로 넘어오는 동안에만 무릎이 접힌다.
+  kneeL.rotation.x = -(0.12 + Math.max(0, cos) * 1.35) * k;
+  kneeR.rotation.x = -(0.12 + Math.max(0, -cos) * 1.35) * k;
+  // 앞으로 나온 팔은 더 굽히고 뒤로 간 팔은 조금 편다.
+  elbowL.rotation.x = (1.05 - sin * 0.35) * k;
+  elbowR.rotation.x = (1.05 + sin * 0.35) * k;
 }
 
 /**

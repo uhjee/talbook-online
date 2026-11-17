@@ -17,14 +17,14 @@ export interface Decor {
 
 type Put = <T extends THREE.Object3D>(obj: T, x: number, d: number, ry?: number) => T;
 
-const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xd9a441, face: 'calm' };
+const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xd9a441, hatKind: 'helmet', face: 'calm' };
 /** 탄광을 지키는 간수 */
-const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35, face: 'angry', badge: 0xc0261c };
+const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
 const PARTY: PersonOpts = { shirt: 0x34404f, pants: 0x2b3440, hat: 0x34404f, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
 const PARTY_GUN: PersonOpts = { shirt: 0x6a3a2c, pants: 0x2b3440, hat: 0x6a3a2c, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
-const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f, face: 'angry', badge: 0xc0261c };
+const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
 /** 한국군 병사. 화강암 디지털 무늬 전투복과 전투모를 입는다. 색 값은 무늬가 안 쓰이는 허리띠와 모자 테에만 쓰인다 */
-export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true };
+export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
 const PAIR_GAP = 50;
 /** 감시자의 시야와 다음 감시자의 시야 사이에 비워 두는 거리(m) */
@@ -470,7 +470,7 @@ function cityDecor(put: Put): void {
   put(shop.clone(), -7.2, stagePos('city', 0.8), 0.3);
   // 차가 없는 도로에서 수신호하는 교통 안내원
   for (const f of [0.28, 0.72]) {
-    const lady = put(makePerson({ shirt: 0x2f6fd1, pants: 0xffffff, hat: 0xffffff, face: 'smile' }), 6.6, stagePos('city', f), Math.PI);
+    const lady = put(makePerson({ shirt: 0x2f6fd1, pants: 0xffffff, hat: 0xffffff, hatKind: 'officer', face: 'smile' }), 6.6, stagePos('city', f), Math.PI);
     lady.userData.parts.armL.rotation.z = 2.4;
     lady.userData.parts.armR.rotation.x = -1.5;
   }

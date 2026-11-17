@@ -110,8 +110,6 @@ export class Hud {
   private toastTimer = 0;
   private sayTimer = 0;
 
-  /** 리용길의 말풍선이 떠 있는지 여부 */
-  shouting = false;
   private shoutTimer = 0;
   private rushing = false;
   private touch = window.matchMedia('(pointer: coarse)').matches;
@@ -144,34 +142,24 @@ export class Hud {
   }
 
   /**
-   * 리용길의 대사를 머리 위 말풍선으로 잠깐 띄운다. 위치는 shoutAt으로 매 프레임 맞춘다.
+   * 리용길의 대사를 화면 왼쪽 아래에 얼굴 그림과 함께 잠깐 띄운다. 앞길을 가리지 않도록 이미 지나온 길 위에 놓는다.
    * @author heojeehaeng(claude)
    * @param {string} text 대사(줄바꿈 문자로 줄을 나눈다)
    * @param {number} ms 표시 시간(ms)
+   * @param {number} hits 리용길이 당한 횟수. 얼굴 그림의 모자, 머리, 때를 이 값에 맞춘다
    */
-  shout(text: string, ms: number): void {
+  shout(text: string, ms: number, hits = 0): void {
     const el = $('shout');
-    el.firstElementChild!.textContent = text;
+    el.querySelector('.say span')!.textContent = text;
+    el.classList.toggle('w1', hits >= 1);
+    el.classList.toggle('w3', hits >= 3);
+    el.classList.toggle('w5', hits >= 5);
     // 이미 떠 있을 때도 튀어나오는 움직임이 다시 나오도록 한 번 껐다 켠다.
     el.classList.remove('on');
     void el.offsetWidth;
     el.classList.add('on');
-    this.shouting = true;
     window.clearTimeout(this.shoutTimer);
-    this.shoutTimer = window.setTimeout(() => {
-      el.classList.remove('on');
-      this.shouting = false;
-    }, ms);
-  }
-
-  /**
-   * 리용길의 말풍선을 화면의 지정한 점 바로 위로 옮긴다.
-   * @author heojeehaeng(claude)
-   * @param {number} x 꼬리 끝이 가리킬 화면 x(px)
-   * @param {number} y 꼬리 끝이 가리킬 화면 y(px)
-   */
-  shoutAt(x: number, y: number): void {
-    $('shout').style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+    this.shoutTimer = window.setTimeout(() => el.classList.remove('on'), ms);
   }
 
   /**

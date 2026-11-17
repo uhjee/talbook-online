@@ -179,54 +179,118 @@ body {
   opacity: 1;
 }
 
+/* 리용길의 대사: 앞길을 가리지 않도록 화면 왼쪽 아래, 이미 지나온 길 위에 얼굴 그림과 함께 띄운다. */
 #shout {
   position: fixed;
-  left: 0;
-  top: 0;
+  left: calc(12px + env(safe-area-inset-left));
+  /* 터치 화면에서는 오른쪽 아래 조작 안내판보다 위에 놓이게 한다. */
+  bottom: max(104px, 13vh);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
   opacity: 0;
-  transition: opacity 0.15s;
+  transform: translateX(-28px);
+  transition: opacity 0.14s, transform 0.14s;
   pointer-events: none;
 }
 #shout.on {
   opacity: 1;
+  transform: none;
+  animation: shout-in 0.26s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
-#shout span {
-  position: relative;
-  display: block;
-  padding: 5px 13px;
-  border: var(--line) solid var(--ink);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 3px 0 var(--ink);
-  font-family: var(--display);
-  font-size: 17px;
-  line-height: 1.25;
-  text-align: center;
-  white-space: pre;
-}
-#shout span::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -11px;
-  margin-left: -7px;
-  border: 7px solid transparent;
-  border-top-color: var(--ink);
-  border-bottom: 0;
-}
-#shout.on span {
-  animation: shout-pop 0.22s ease-out;
-}
-@keyframes shout-pop {
+@keyframes shout-in {
   0% {
-    transform: scale(0.4);
-  }
-  70% {
-    transform: scale(1.15);
+    transform: translateX(-70px) scale(0.7);
   }
   100% {
-    transform: scale(1);
+    transform: none;
   }
+}
+#shout .face {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 3px 0 var(--ink));
+}
+#shout.on .face {
+  animation: face-bob 0.3s ease-in-out infinite alternate;
+}
+@keyframes face-bob {
+  100% {
+    transform: translateY(-3px) rotate(-3deg);
+  }
+}
+#shout .mouth {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#shout.on .mouth {
+  animation: talk 0.13s steps(2, jump-none) infinite alternate;
+}
+@keyframes talk {
+  0% {
+    transform: scale(0.75, 0.3);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* 당한 횟수에 따라 얼굴 그림도 모자를 잃고, 머리가 삐치고, 때와 생채기가 생긴다. */
+#shout .tuft,
+#shout .dirt,
+#shout .scratch,
+#shout.w1 .cap,
+#shout.w3 .scarf {
+  display: none;
+}
+#shout.w1 .tuft,
+#shout.w3 .dirt,
+#shout.w5 .scratch {
+  display: inline;
+}
+#shout.w5 .skin {
+  fill: #dcb793;
+}
+#shout .say {
+  position: relative;
+  margin-bottom: 7px;
+  padding: 10px 16px 7px;
+  border: var(--line) solid var(--ink);
+  border-radius: 16px 16px 16px 5px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+  transform: rotate(-1.5deg);
+  transform-origin: left bottom;
+}
+#shout .say::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  bottom: 8px;
+  border: 6px solid transparent;
+  border-right: 8px solid var(--ink);
+  border-left: 0;
+}
+#shout .say b {
+  position: absolute;
+  left: 9px;
+  top: -11px;
+  padding: 0 8px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--yellow);
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+}
+#shout .say span {
+  display: block;
+  font-family: var(--display);
+  font-size: 23px;
+  line-height: 1.25;
+  white-space: pre;
 }
 
 /* ---------- 조작 안내판 ---------- */
@@ -735,6 +799,13 @@ button:disabled {
   }
   #taunt {
     font-size: 14px;
+  }
+  #shout .face {
+    width: 50px;
+    height: 50px;
+  }
+  #shout .say span {
+    font-size: 17px;
   }
   #stage {
     font-size: 15px;

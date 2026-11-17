@@ -41,7 +41,7 @@ export class Player {
    * @author heojeehaeng(claude)
    */
   constructor() {
-    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, skin: HERO_SKIN, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true });
+    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, skin: HERO_SKIN, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true, wear: true });
     // 넘어짐과 엎드리기를 몸 가운데 기준으로 돌리기 위해 관절을 허리 높이에 둔다.
     this.model.position.y = -0.9;
     this.pivot.position.y = 0.9;
@@ -210,10 +210,13 @@ export class Player {
     this.runPhase += dt * this.speed * 1.1;
     // 엎드려 길 때는 팔다리를 작게 젓는다.
     swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.hiding ? 0.45 : this.speed > 0.5 ? 0.9 : 0);
+    const { armL, armR, kneeL, kneeR, elbowL, elbowR } = this.model.userData.parts;
+    // 뛰어오른 동안에는 무릎을 당겨 올린다.
+    if (this.y > 0) kneeL.rotation.x = kneeR.rotation.x = -1.2;
     // 부스터로 질주할 때는 두 팔을 뒤로 쭉 뻗고 달린다.
     if (this.boosting) {
-      const { armL, armR } = this.model.userData.parts;
       armL.rotation.x = armR.rotation.x = -1.35;
+      elbowL.rotation.x = elbowR.rotation.x = 0;
     }
   }
 }

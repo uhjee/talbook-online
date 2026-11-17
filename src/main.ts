@@ -53,7 +53,6 @@ class Game implements Ctx {
   private seenBoosts = 0;
   private shoutT = -10;
   private lastLine = -1;
-  private headPos = new THREE.Vector3();
   private outline: Outline | null = null;
 
   player = new Player();
@@ -308,7 +307,7 @@ class Game implements Ctx {
       // 부스터는 연달아 쓸 수 있으므로 대사는 앞의 것이 읽힐 만큼 지난 뒤에만 바꾼다.
       if (this.time - this.shoutT > 1.2) {
         this.shoutT = this.time;
-        this.hud.shout(this.pickBoostLine(), 1300);
+        this.hud.shout(this.pickBoostLine(), 1500, p.hits);
       }
     }
     this.inCrowd = false;
@@ -456,11 +455,6 @@ class Game implements Ctx {
     else this.renderer.render(this.scene, this.camera);
 
     this.hud.rush(this.state === 'play' && p.boosting);
-    if (this.hud.shouting) {
-      // 말풍선이 리용길의 머리 위를 따라다니도록 머리 위치를 화면 좌표로 바꾼다.
-      const v = this.headPos.set(p.x, p.y + 2.15, -p.d).project(this.camera);
-      this.hud.shoutAt((v.x * 0.5 + 0.5) * window.innerWidth, (-v.y * 0.5 + 0.5) * window.innerHeight);
-    }
 
     if (this.state === 'play' || this.state === 'knock') {
       this.hud.update(this.runMs, p.d / COURSE_LEN, stageAt(p.d).name);

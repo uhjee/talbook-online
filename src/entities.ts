@@ -339,13 +339,15 @@ export class Grabber implements Entity {
       swingPerson(this.g, c.time * 14, 0.5);
     }
     this.g.position.set(this.x, 0, -this.d);
-    const { armL, armR } = this.g.userData.parts;
+    const { armL, armR, elbowL, elbowR } = this.g.userData.parts;
     // 붙잡기 직전에 팔을 옆으로 벌려 예고한다. 버티고 서는 사람은 처음부터 벌리고 있다.
     armL.rotation.z = armR.rotation.z = 0;
     if ((near && dd < 20) || (this.style === 'block' && dd < 60)) {
       armL.rotation.x = armR.rotation.x = 0;
-      armL.rotation.z = 1.4;
-      armR.rotation.z = -1.4;
+      armL.rotation.z = -1.4;
+      armR.rotation.z = 1.4;
+      // 벌린 팔 끝을 앞으로 살짝 굽혀 끌어안으려는 자세를 만든다.
+      elbowL.rotation.x = elbowR.rotation.x = 0.45;
     }
     const reach = this.style === 'block' ? 1.35 : 0.8;
     // 점프하면 벌린 팔 위로 넘어간다. 발이 이 높이보다 낮을 때만 붙잡힌다.
@@ -367,7 +369,7 @@ export class PhoneWalker implements Entity {
    * @param {number} sway 좌우로 비틀거리는 폭(m)
    */
   constructor(c: Ctx, public d: number, private sway: number) {
-    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, face: 'smile' });
+    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true, face: 'smile' });
     this.g.rotation.y = Math.PI;
     // 얼굴 앞에 든 큼직한 휴대폰. 플레이어 쪽으로는 뒷면과 카메라 렌즈가 보인다.
     const phone = new THREE.Group();
@@ -392,6 +394,9 @@ export class PhoneWalker implements Entity {
     bubble.position.set(0.5, 2.15, 0);
     bubble.rotation.y = Math.PI;
     this.g.add(bubble);
+    // 플레이어가 가까이 와서 갱신이 시작되기 전에는 출발선(원점)에 서 있지 않도록 제자리에 숨겨 둔다.
+    this.g.position.set(0, 0, -d);
+    this.g.visible = false;
     c.add(this.g, d, true);
   }
 
@@ -404,10 +409,11 @@ export class PhoneWalker implements Entity {
     this.g.visible = this.d > p.d - 20 && this.d < p.d + 190;
     swingPerson(this.g, c.time * 6, 0.4);
     // 두 팔은 휴대폰을 든 자세로 고정한다.
-    const { armL, armR } = this.g.userData.parts;
-    armL.rotation.x = armR.rotation.x = 1.9;
+    const { armL, armR, elbowL, elbowR } = this.g.userData.parts;
+    armL.rotation.x = armR.rotation.x = 1.3;
     armL.rotation.z = -0.35;
     armR.rotation.z = 0.35;
+    elbowL.rotation.x = elbowR.rotation.x = 1.1;
     if (crossed(p, this.d, 0.6) && Math.abs(p.x - this.x) < 0.8 && p.y < 1.2 && p.fall(FALL_LIGHT)) c.toast('"아, 죄송합니다"');
   }
 }
@@ -429,7 +435,7 @@ export class LDancer implements Entity {
    * @param {number} beat 춤 박자의 빠르기(rad/s)
    */
   constructor(c: Ctx, public d: number, private cx: number, private span: number, private beat: number) {
-    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, face: 'grin' });
+    this.g = makePerson({ shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true, face: 'grin' });
     this.g.rotation.y = Math.PI;
     // 오른손에 흰 장갑을 끼고 검지와 엄지로 L자를 만든다. 멀리서도 보이도록 손보다 크게 그린다.
     const { armR } = this.g.userData.parts;
@@ -439,6 +445,9 @@ export class LDancer implements Entity {
     // 몸이 뒤로 돌아서 있으므로 말풍선은 다시 돌려 글자가 플레이어 쪽을 향하게 한다.
     bubble.rotation.y = Math.PI;
     this.g.add(bubble);
+    // 플레이어가 가까이 와서 갱신이 시작되기 전에는 출발선(원점)에 서 있지 않도록 제자리에 숨겨 둔다.
+    this.g.position.set(cx, 0, -d);
+    this.g.visible = false;
     c.add(this.g, d, true);
   }
 
@@ -452,9 +461,13 @@ export class LDancer implements Entity {
     const kick = Math.sin(t * 2);
     this.g.position.set(this.x, Math.abs(kick) * 0.22, -this.d);
     this.g.rotation.z = Math.sin(t) * 0.2;
-    const { legL, legR, armL, armR } = this.g.userData.parts;
+    const { legL, legR, armL, armR, kneeL, kneeR, elbowL } = this.g.userData.parts;
     legL.rotation.x = Math.max(0, kick) * 1.2;
     legR.rotation.x = Math.max(0, -kick) * 1.2;
+    // 들어 올린 다리는 무릎을 접어 폴짝 뛰는 모양을 만든다.
+    kneeL.rotation.x = -Math.max(0, kick) * 1.5;
+    kneeR.rotation.x = -Math.max(0, -kick) * 1.5;
+    elbowL.rotation.x = 0.9;
     armL.rotation.set(kick * 0.9, 0, -0.5);
     // L자를 만든 손은 이마 앞에 고정하고 박자에 맞춰 까딱인다.
     armR.rotation.set(2.75, 0, 0.2 + kick * 0.08);
@@ -527,7 +540,7 @@ export class Watcher implements Entity {
     cone.position.y = 0.05;
     this.pivot.add(cone);
     this.pivot.position.set(this.wx, 0, -d);
-    this.man = makePerson({ shirt: 0x3d4a3a, pants: 0x333f31, hat: 0x8b1e1e, face: 'angry', armband: 0xc0261c });
+    this.man = makePerson({ shirt: 0x3d4a3a, pants: 0x333f31, hat: 0x8b1e1e, hatKind: 'officer', boots: true, face: 'angry', armband: 0xc0261c });
     this.man.position.set(this.wx, 0, -d);
     c.add(this.pivot, d);
     c.add(this.man, d);
