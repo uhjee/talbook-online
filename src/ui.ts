@@ -112,6 +112,7 @@ export class Hud {
 
   private shoutTimer = 0;
   private rushing = false;
+  private skidding = false;
   private touch = window.matchMedia('(pointer: coarse)').matches;
   private keysKey = '';
 
@@ -171,6 +172,17 @@ export class Hud {
     if (on === this.rushing) return;
     this.rushing = on;
     $('boost-fx').classList.toggle('on', on);
+  }
+
+  /**
+   * 슬라이드로 미끄러지는 동안 화면 아래쪽에 바닥을 스치는 속도선을 그린다. 부스터와 달리 화면을 흐리지 않고 아래쪽에만 그린다.
+   * @author heojeehaeng(claude)
+   * @param {boolean} on 표시 여부
+   */
+  skid(on: boolean): void {
+    if (on === this.skidding) return;
+    this.skidding = on;
+    $('slide-fx').classList.toggle('on', on);
   }
 
   /**

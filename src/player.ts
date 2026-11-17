@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
+import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SLIDE_MULT, SPEED_BASE, SPEED_MAX } from './config';
 import { Input } from './input';
 import { crawlPerson, HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
 import { castShadows } from './world';
@@ -34,6 +34,8 @@ export class Player {
   boostT = 0;
   /** 부스터를 쓴 횟수. 대사를 띄울 때 새로 썼는지 알아보는 데 쓴다 */
   boosts = 0;
+  /** 슬라이드를 한 횟수. 대사와 흙먼지를 낼 때 새로 했는지 알아보는 데 쓴다 */
+  slides = 0;
   private runPhase = 0;
 
   /**
@@ -64,7 +66,17 @@ export class Player {
    * @return {boolean} 부스터 질주 여부
    */
   get boosting(): boolean {
-    return this.state === 'run' && this.speed > SPEED_MAX * 1.2;
+    // 슬라이드로 빨라진 속도까지는 부스터로 보지 않는다.
+    return this.state === 'run' && this.speed > SPEED_MAX * SLIDE_MULT * 1.1;
+  }
+
+  /**
+   * 슬라이드로 바닥을 미끄러지는 중인지 반환한다. 기어가는 동안은 포함하지 않는다.
+   * @author heojeehaeng(claude)
+   * @return {boolean} 슬라이드 여부
+   */
+  get sliding(): boolean {
+    return this.state === 'run' && this.slideT > 0 && !this.hiding && this.y === 0;
   }
 
   /**
@@ -154,10 +166,18 @@ export class Player {
       this.vy = JUMP_V;
       this.slideT = 0;
     }
-    if (input.takeSlide() && grounded) this.slideT = SLIDE_TIME;
+    if (input.takeSlide() && grounded) {
+      this.slideT = SLIDE_TIME;
+      this.slides++;
+    }
     if (this.slideT > 0) this.slideT -= dt;
     this.cleanT += dt;
-    const target = (this.cleanT > BOOST_AFTER ? SPEED_MAX : SPEED_BASE) * rate;
+    let target = (this.cleanT > BOOST_AFTER ? SPEED_MAX : SPEED_BASE) * rate;
+    // 슬라이드: 미끄러지는 동안에는 평소보다 빠르게 나아간다. 시작하는 순간 바로 그 속도가 되고, 끝나면 서서히 돌아온다.
+    if (this.sliding) {
+      target *= SLIDE_MULT;
+      this.speed = Math.max(this.speed, target);
+    }
     // 부스터: 아주 잠깐 속도를 크게 올리고, 끝나면 원래 속도로 서서히 돌아온다.
     if (input.takeBoost() && !this.hiding) {
       this.boostT = BOOST_TIME;
@@ -201,8 +221,9 @@ export class Player {
       rot = -1.44;
       h = 0.27;
     } else if (this.slideT > 0) {
-      rot = 1.2;
-      h = 0.35;
+      // 머리부터 들어가는 슬라이드. 발부터 미끄러지면 뒤따르는 카메라에 큰 머리만 보여서 몸을 앞으로 눕힌다.
+      rot = -1.36;
+      h = 0.3;
     }
     // 달릴 때는 몸을 앞으로 숙이고, 부스터를 쓰면 더 깊이 숙인다.
     if (rot === 0 && this.speed > 2) rot = this.boostT > 0 ? -0.5 : -0.2;
@@ -221,13 +242,24 @@ export class Player {
       return;
     }
     swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.speed > 0.5 ? 0.9 : 0);
-    const { armL, armR, kneeL, kneeR, elbowL, elbowR } = this.model.userData.parts;
+    const { legL, legR, armL, armR, kneeL, kneeR, elbowL, elbowR } = this.model.userData.parts;
     // 뛰어오른 동안에는 무릎을 당겨 올린다.
     if (this.y > 0) kneeL.rotation.x = kneeR.rotation.x = -1.2;
     // 부스터로 질주할 때는 두 팔을 뒤로 쭉 뻗고 달린다.
     if (this.boosting) {
       armL.rotation.x = armR.rotation.x = -1.35;
       elbowL.rotation.x = elbowR.rotation.x = 0;
+    }
+    // 슬라이드: 두 팔을 앞으로 모아 뻗고 다리를 곧게 편 채 화살처럼 미끄러진다. 발끝만 빠르게 파닥인다.
+    if (this.sliding) {
+      const flutter = Math.sin(performance.now() / 28) * 0.14;
+      legL.rotation.x = -0.12 + flutter;
+      legR.rotation.x = -0.12 - flutter;
+      kneeL.rotation.x = kneeR.rotation.x = 0;
+      armL.rotation.set(2.95, 0, 0.14);
+      armR.rotation.set(2.95, 0, -0.14);
+      elbowL.rotation.x = elbowR.rotation.x = 0;
+      this.model.userData.posed = true;
     }
   }
 }

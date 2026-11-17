@@ -15,6 +15,7 @@ export class Fx {
   private pool: Puff[] = [];
   private next = 0;
   private timer = 0;
+  private sprayT = 0;
 
   /**
    * 먼지 알갱이를 미리 만들어 둔다. 달리는 동안 새로 만들지 않고 돌려 쓴다.
@@ -22,7 +23,7 @@ export class Fx {
    * @param {THREE.Scene} scene 게임 장면
    * @param {number} count 미리 만들 알갱이 수
    */
-  constructor(scene: THREE.Scene, count = 36) {
+  constructor(scene: THREE.Scene, count = 64) {
     const geo = new THREE.SphereGeometry(1, 7, 5);
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
@@ -72,6 +73,21 @@ export class Fx {
     const fast = speed > 30;
     this.timer = fast ? 0.025 : 0.07;
     this.emit(x + (Math.random() - 0.5) * 0.3, 0.12, z + 0.3, color, fast ? 0.26 : 0.16, fast ? 0.5 : 0.36, fast ? 2.2 : 1.1);
+  }
+
+  /**
+   * 슬라이드로 미끄러지는 동안 몸 양옆으로 낮게 깔리는 흙먼지를 뿌린다.
+   * @author heojeehaeng(claude)
+   * @param {number} dt 프레임 시간(초)
+   * @param {number} x 플레이어 x
+   * @param {number} z 플레이어 z
+   * @param {number} color 바닥에 어울리는 먼지 색
+   */
+  spray(dt: number, x: number, z: number, color: number): void {
+    this.sprayT -= dt;
+    if (this.sprayT > 0) return;
+    this.sprayT = 0.03;
+    for (const side of [-1, 1]) this.emit(x + side * (0.35 + Math.random() * 0.2), 0.08, z + 0.4 + Math.random() * 0.5, color, 0.2, 0.42, 2.4);
   }
 
   /**

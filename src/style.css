@@ -828,6 +828,43 @@ button:disabled {
   }
 }
 
+/* ---------- 슬라이드 속도선 ----------
+   부스터(화면 전체를 흐리고 흰 선을 사방으로 뻗음)와 구분되도록, 흐림 없이 화면 아래쪽에만 흙빛 선을 낮게 깐다. */
+#slide-fx {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48%;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  /* 리용길 둘레와 위쪽은 비우고 양옆 아래 귀퉁이에만 선이 남게 한다. */
+  -webkit-mask-image: radial-gradient(ellipse 46% 88% at 50% 0%, transparent 62%, #000 100%);
+  mask-image: radial-gradient(ellipse 46% 88% at 50% 0%, transparent 62%, #000 100%);
+}
+#slide-fx.on {
+  opacity: 1;
+  transition: opacity 0.05s;
+}
+#slide-fx::before {
+  content: '';
+  position: absolute;
+  inset: -60% -20% -20%;
+  background: repeating-conic-gradient(from 0deg at 50% 44%, rgba(255, 236, 196, 0) 0deg 5.2deg, rgba(255, 236, 196, 0.6) 5.6deg 6.4deg, rgba(255, 236, 196, 0) 6.8deg 12deg);
+  transform-origin: 50% 44%;
+  animation: skid-lines 0.12s steps(3) infinite;
+}
+@keyframes skid-lines {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(12deg);
+  }
+}
+
 /* ---------- 좁은 화면 ---------- */
 @media (max-width: 420px) {
   /* 네 구간이 한 줄에 들어가지 않으므로 두 줄로 나눠 놓는다. */

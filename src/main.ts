@@ -12,6 +12,8 @@ import { World } from './world';
 
 /** 부스터를 쓸 때 리용길이 외치는 대사 */
 const BOOST_LINES = ['이야호!', '니용앤비용~', '너에게로 달려가는 중\n람보르기니보다 빨리 슝', '분석 중~!?', '난 널 버리지 않아~♪'];
+/** 슬라이드를 시작할 때 리용길이 외치는 대사 */
+const SLIDE_LINE = '쏙~!';
 /** 기어가기를 시작할 때 리용길이 외치는 대사 */
 const CRAWL_LINES = ['엉금엉금 기어서 가자~♪', '각! 개! 전! 투!'];
 
@@ -57,6 +59,11 @@ class Game implements Ctx {
   private lastLine = -1;
   private crawlLine = Math.floor(Math.random() * CRAWL_LINES.length);
   private wasCrawling = false;
+  private seenSlides = 0;
+  /** 마지막으로 띄운 대사가 슬라이드 대사인지 여부 */
+  private slideSaid = false;
+  /** 슬라이드 연출의 세기(0~1). 카메라가 낮아지는 정도를 부드럽게 잇는다 */
+  private slideK = 0;
   private outline: Outline | null = null;
 
   player = new Player();
@@ -224,6 +231,7 @@ class Game implements Ctx {
     this.hud.shout('카리나 동무 기다리라우!!', 2400);
     // 출발 대사가 바로 덮이지 않도록 부스터 대사는 조금 뒤부터 받는다.
     this.shoutT = this.time + 1.2;
+    this.slideSaid = false;
   }
 
   /**
@@ -311,12 +319,24 @@ class Game implements Ctx {
       // 부스터는 연달아 쓸 수 있으므로 대사는 앞의 것이 읽힐 만큼 지난 뒤에만 바꾼다.
       if (this.time - this.shoutT > 1.2) {
         this.shoutT = this.time;
+        this.slideSaid = false;
         this.hud.shout(this.pickBoostLine(), 1500, p.hits);
       }
     }
+    if (p.slides !== this.seenSlides) {
+      this.seenSlides = p.slides;
+      this.fx.burst(p.x, -p.d + 0.4, stageAt(p.d).road, 6);
+      if (this.time - this.shoutT > 1.2) {
+        this.shoutT = this.time;
+        this.slideSaid = true;
+        this.hud.shout(SLIDE_LINE, 900, p.hits);
+      }
+    }
     // 기어가기를 시작하는 순간에 한 번 외친다. 두 대사를 번갈아 쓰고, 짧게 끊어 눌러도 대사가 쏟아지지 않게 간격을 둔다.
-    if (p.hiding && !this.wasCrawling && this.time - this.shoutT > 1.2) {
+    // 아래 방향키는 누르는 순간 슬라이드가 먼저 나가므로, 슬라이드 대사가 떠 있을 때는 기다리지 않고 바꾼다.
+    if (p.hiding && !this.wasCrawling && (this.slideSaid || this.time - this.shoutT > 1.2)) {
       this.shoutT = this.time;
+      this.slideSaid = false;
       this.crawlLine = (this.crawlLine + 1) % CRAWL_LINES.length;
       this.hud.shout(CRAWL_LINES[this.crawlLine], 1500, p.hits);
     }
@@ -437,6 +457,9 @@ class Game implements Ctx {
 
     const dust = stageAt(p.d).road;
     if (this.state === 'play' && p.state === 'run' && p.y === 0) this.fx.trail(dt, p.x, -p.d, p.speed, dust);
+    const sliding = this.state === 'play' && p.sliding;
+    if (sliding) this.fx.spray(dt, p.x, -p.d, dust);
+    this.slideK += ((sliding ? 1 : 0) - this.slideK) * Math.min(1, dt * 10);
     const fallen = p.state === 'fall';
     if (fallen && !this.wasFallen) this.fx.burst(p.x, -p.d, dust);
     this.wasFallen = fallen;
@@ -449,10 +472,12 @@ class Game implements Ctx {
     // 결승 연출에서는 문을 여는 병사가 리용길에 가리지 않도록 카메라를 옆으로 옮긴다.
     const cx = close ? 1.7 : p.x * 0.55;
     const back = close ? 4.2 : 7.2;
-    this.camera.position.set(cx + sx, (close ? 2.6 : 3.8) + sy, -p.d + back);
-    this.camera.lookAt(close ? 0.3 : cx, close ? 1.4 : 1.0, -p.d - (close ? 7 : 10));
-    // 부스터를 쓰는 동안에는 시야각을 넓혀 속도감을 준다.
-    const wantFov = (window.innerWidth < window.innerHeight ? 80 : 62) + (p.boostT > 0 ? 16 : 0);
+    // 슬라이드하는 동안에는 카메라가 바닥 가까이 내려와 바짝 따라붙어, 땅을 스치는 속도감을 준다.
+    const k = close ? 0 : this.slideK;
+    this.camera.position.set(cx + sx, (close ? 2.6 : 3.8 - k * 0.8) + sy, -p.d + back - k * 1.2);
+    this.camera.lookAt(close ? 0.3 : cx, close ? 1.4 : 1.0 - k * 0.2, -p.d - (close ? 7 : 10));
+    // 부스터를 쓰는 동안에는 시야각을 크게, 슬라이드하는 동안에는 조금 넓혀 속도감을 준다.
+    const wantFov = (window.innerWidth < window.innerHeight ? 80 : 62) + (p.boostT > 0 ? 16 : k * 6);
     if (Math.abs(wantFov - this.fov) > 0.1) {
       this.fov += (wantFov - this.fov) * Math.min(1, dt * 10);
       this.camera.fov = this.fov;
@@ -466,6 +491,7 @@ class Game implements Ctx {
     else this.renderer.render(this.scene, this.camera);
 
     this.hud.rush(this.state === 'play' && p.boosting);
+    this.hud.skid(sliding && !p.boosting);
 
     if (this.state === 'play' || this.state === 'knock') {
       this.hud.update(this.runMs, p.d / COURSE_LEN, stageAt(p.d).name);

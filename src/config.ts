@@ -12,6 +12,8 @@ export const BOOST_MULT = 2.3;
 /** 기어가기 중의 이동 속도 배율. 앞으로 기는 속도와 좌우 이동에 모두 적용한다 */
 export const HIDE_RATE = 0.5;
 export const BOOST_TIME = 0.3;
+/** 슬라이드로 미끄러지는 동안의 속도 배율 */
+export const SLIDE_MULT = 1.3;
 
 /** 넘어지는 동작과 지뢰로 날아가는 동작의 빠르기 배율 */
 export const FALL_RATE = 1.3;
