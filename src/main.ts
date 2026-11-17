@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CHECKPOINTS, COURSE_LEN, stageAt } from './config';
-import { Ctx, Entity } from './entities';
+import { BUBBLE_TEXT, Ctx, Entity } from './entities';
 import { Fx } from './fx';
 import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
@@ -472,9 +472,15 @@ class Game implements Ctx {
 const startBtn = document.getElementById('btn-start') as HTMLButtonElement;
 startBtn.disabled = true;
 startBtn.textContent = '불러오는 중…';
-loadProps((done, total) => {
+// 말풍선은 캔버스에 한 번 그려 두므로, 그리기 전에 웹 글꼴을 받아 둔다. 인터넷이 안 되면 2.5초 뒤 기본 글꼴로 넘어간다.
+const fonts = Promise.race([
+  document.fonts.load('40px Jua', BUBBLE_TEXT),
+  new Promise((resolve) => window.setTimeout(resolve, 2500)),
+]).catch(() => undefined);
+const models = loadProps((done, total) => {
   startBtn.textContent = `불러오는 중… ${Math.round((done / total) * 100)}%`;
-}).then(() => {
+});
+Promise.all([models, fonts]).then(() => {
   const game = new Game();
   startBtn.disabled = false;
   startBtn.textContent = '탈북 시작';

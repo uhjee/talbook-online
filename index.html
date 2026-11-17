@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>탈북 온라인</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -16,7 +19,12 @@
         <span id="stage"></span>
         <span id="timer">0:00.00</span>
       </div>
-      <div id="progress"><div id="progress-fill"></div></div>
+      <div id="progress">
+        <div id="progress-fill"></div>
+        <i style="left: 16.67%"></i>
+        <i style="left: 43.33%"></i>
+        <i style="left: 80%"></i>
+      </div>
     </div>
     <div id="toast"></div>
     <div id="taunt"></div>
@@ -39,21 +47,24 @@
 
     <div id="menu" class="screen">
       <div class="panel">
+        <p class="kicker">달려서 귀순하는 3D 아케이드</p>
         <h1>탈북 온라인</h1>
-        <p class="sub">아오지 탄광에서 SS사단까지 달려서 터치다운!</p>
+        <ol class="route">
+          <li>아오지 탄광</li>
+          <li>북한 시내</li>
+          <li>국경과 DMZ</li>
+          <li>SS사단</li>
+        </ol>
         <input id="nick" type="text" maxlength="8" placeholder="닉네임 (2~8자)" autocomplete="off" />
         <p id="nick-error" class="error"></p>
         <button id="btn-start" class="primary">탈북 시작</button>
         <button id="btn-rank">랭킹 보기</button>
-        <div class="help">
-          <p><b>PC</b> 좌우 방향키 이동 · 스페이스바 점프 · 위 방향키 부스터 · 아래 방향키 짧게 슬라이드, 길게 숨기</p>
-          <p><b>모바일</b> 좌우로 끌기 이동 · 위로 쓸기 점프 · 두 번 두드리기 부스터 · 아래로 쓸기 슬라이드 · 길게 누르기 숨기</p>
-        </div>
       </div>
     </div>
 
     <div id="result" class="screen hidden">
       <div class="panel">
+        <p class="kicker">터치다운</p>
         <h2>탈북 성공!</h2>
         <p id="res-nick" class="sub"></p>
         <p id="res-time" class="big"></p>
@@ -61,8 +72,10 @@
         <p id="res-title" class="badge"></p>
         <p id="res-stats" class="sub"></p>
         <button id="btn-share" class="primary">공유하기</button>
-        <button id="btn-save">이미지 저장</button>
-        <button id="btn-rank2">랭킹 보기</button>
+        <div class="row">
+          <button id="btn-save">이미지 저장</button>
+          <button id="btn-rank2">랭킹 보기</button>
+        </div>
         <button id="btn-retry">다시 하기</button>
       </div>
     </div>

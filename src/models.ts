@@ -262,12 +262,13 @@ export function makeBubble(text: string): THREE.Mesh {
     g.closePath();
     g.fillStyle = 'rgba(255, 255, 255, 0.9)';
     g.fill();
-    g.lineWidth = 7;
-    g.strokeStyle = '#b3261e';
+    g.lineWidth = 8;
+    // 화면의 다른 말풍선과 같은 먹선 테두리를 쓴다.
+    g.strokeStyle = '#171922';
     g.stroke();
     const size = Math.floor(Math.min((bh * 0.84) / (lines.length * 1.18), (bw * 0.92) / longest));
-    g.fillStyle = '#8f1a14';
-    g.font = `bold ${size}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
+    g.fillStyle = '#c0281f';
+    g.font = `${size}px "Jua", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     lines.forEach((l, i) => g.fillText(l, cx, pad + bh / 2 + (i - (lines.length - 1) / 2) * size * 1.18));
