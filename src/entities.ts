@@ -3,7 +3,7 @@ import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF } from './config';
 import {
   box, makeBear, makeBoar, makeBubble, makeCat, makeDeer, makeGiantHead, makeGiraffe, makeLimo, makeMascot, makePerson, makeSign,
   makeTiger, mat,
-  PersonOpts, swingPerson, textTexture,
+  PersonOpts, runQuad, swingPerson, textTexture,
 } from './models';
 import { Player } from './player';
 
@@ -891,6 +891,7 @@ export class Dasher implements Entity {
       this.dNow = this.fromD + (this.toD - this.fromD) * k;
       this.g.position.set(this.x, 0, -this.dNow);
       this.g.rotation.y = Math.atan2(this.toD - this.fromD, this.toX - this.fromX);
+      runQuad(this.g, c.time * 26);
       if (this.k >= 1) {
         if (this.legs > 0 && this.dNow > p.d - 6) this.nextLeg(p.d);
         else this.state = 'done';
@@ -986,7 +987,7 @@ export class Charger implements Entity {
     this.dNow += this.vd * dt;
     this.g.rotation.y = Math.atan2(this.vx, -this.vd);
     this.g.position.set(this.x, Math.abs(Math.sin(c.time * 22)) * 0.2, -this.dNow);
-    (this.g.userData.legs as THREE.Mesh[]).forEach((l, i) => (l.rotation.x = Math.sin(c.time * 30 + i * 1.6) * 0.8));
+    runQuad(this.g, c.time * 24);
     if (this.dNow < p.d - 20) this.state = 'done';
     if (crossed(p, this.dNow, 1.5) && Math.abs(p.x - this.x) < this.reach && p.y < 0.9 && p.fall(FALL_HEAVY)) {
       c.animalHit();

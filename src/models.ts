@@ -89,6 +89,8 @@ const G = {
   cone: shared(new THREE.ConeGeometry(1, 1, 6)),
   cube: shared(new THREE.BoxGeometry(1, 1, 1)),
   disc: shared(new THREE.CircleGeometry(1, 18)),
+  /** 위쪽 절반만 있는 원기둥. 등을 덮는 줄무늬에 쓴다 */
+  half: shared(new THREE.CylinderGeometry(1, 1, 1, 12, 1, false, -Math.PI / 2, Math.PI)),
 };
 
 const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false });
@@ -770,6 +772,20 @@ export function makeBear(): THREE.Group {
   g.add(part(G.ballLow, 0x151515, [0, 2.89, 0.72], [0.08, 0.06, 0.05]), part(G.ballLow, 0x5a1f1a, [0, 2.72, 0.66], [0.1, 0.07, 0.05]));
   for (const s of [-1, 1]) g.add(part(G.ballLow, fur, [s * 0.4, 3.3, 0.08], [0.17, 0.17, 0.1]), part(G.ballLow, pale, [s * 0.4, 3.29, 0.14], [0.09, 0.09, 0.06]));
   addEyes(g, [0, 3.03, 0.54], 'z', 0.2, 0.06);
+  for (const s of [-1, 1]) {
+    // 화난 눈썹과 벌린 입 사이로 보이는 송곳니
+    const brow = part(G.cube, 0x2a1a10, [s * 0.2, 3.14, 0.53], [0.17, 0.04, 0.03]);
+    brow.rotation.z = s * 0.4;
+    const fang = part(G.cone, 0xffffff, [s * 0.06, 2.75, 0.68], [0.022, 0.08, 0.022]);
+    fang.rotation.x = Math.PI;
+    g.add(brow, fang);
+  }
+  // 가슴의 반달 무늬
+  for (const s of [-1, 1]) {
+    const moon = pill(0xf6ead2, 0.05, 0.42, [s * 0.16, 2.42, 0.5]);
+    moon.rotation.z = s * 0.9;
+    g.add(moon);
+  }
   // 건빵 봉지
   g.add(part(G.cube, 0xd8c690, [0.62, 1.9, 0.52], [0.42, 0.5, 0.16]), part(G.cube, 0xb8412e, [0.62, 1.95, 0.61], [0.3, 0.14, 0.02]));
   const arms = new THREE.Group();
@@ -779,6 +795,8 @@ export function makeBear(): THREE.Group {
     arm.position.set(s * 0.6, 2.32, 0.1);
     arm.rotation.set(0, -s * 0.35, -s * 0.5);
     arm.add(pill(fur, 0.21, 1.5, [s * 0.7, 0, 0], 'x'), part(G.ball, dark, [s * 1.46, 0, 0.06], [0.27, 0.3, 0.3]));
+    // 어깨와 발바닥 살
+    arm.add(part(G.ball, fur, [s * 0.05, 0, -0.04], [0.3, 0.28, 0.3]), part(G.ball, pale, [s * 1.46, 0, 0.28], [0.15, 0.17, 0.09]));
     for (let k = -1; k <= 1; k++) {
       const claw = part(G.cone, 0xf2ead8, [s * 1.56, k * 0.14, 0.34], [0.04, 0.16, 0.04]);
       claw.rotation.x = Math.PI / 2;
@@ -829,38 +847,138 @@ function bearGuideMat(): THREE.MeshBasicMaterial {
   return guideMat;
 }
 
+interface QuadLeg {
+  hip: THREE.Group;
+  knee: THREE.Group;
+  /** 다리마다 다른 박자 어긋남(rad) */
+  off: number;
+}
+
+interface QuadRig {
+  legs: QuadLeg[];
+  head?: THREE.Object3D;
+  tail?: THREE.Object3D;
+}
+
 /**
- * 민화풍 호랑이 모델을 만든다. 까치 한 마리가 위에서 따라다닌다.
+ * 네발 동물의 다리 네 개를 붙인다. 다리마다 엉덩이 관절과 무릎 관절이 있어 달릴 때 접힌다.
+ * 몸은 +z를 보는 것으로 가정한다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 호랑이 모델. 머리는 +x 방향이다
+ * @param {THREE.Group} g 다리를 붙일 몸
+ * @param {number} col 다리 색
+ * @param {number} foot 발(발굽) 색
+ * @param {number} hipY 엉덩이 관절 높이(m). 다리 길이와 같다
+ * @param {number} sx 좌우로 벌어진 거리의 절반(m)
+ * @param {number} fz 앞다리의 z
+ * @param {number} hz 뒷다리가 뒤로 물러난 거리(m)
+ * @param {number} rU 윗다리 굵기(반지름)
+ * @param {number} rL 아랫다리 굵기(반지름)
+ * @return {QuadLeg[]} 다리 관절 목록 (앞왼, 앞오른, 뒤왼, 뒤오른)
+ */
+function addLegs(g: THREE.Group, col: number, foot: number, hipY: number, sx: number, fz: number, hz: number, rU: number, rL: number): QuadLeg[] {
+  const legs: QuadLeg[] = [];
+  const seg = hipY / 2;
+  // 앞다리 한 쌍과 뒷다리 한 쌍이 번갈아 땅을 차도록 박자를 반 바퀴 어긋나게 둔다.
+  for (const [x, z, off] of [[-sx, fz, 0], [sx, fz, 0.6], [-sx, -hz, Math.PI], [sx, -hz, Math.PI + 0.6]]) {
+    const hip = new THREE.Group();
+    hip.position.set(x, hipY, z);
+    const knee = new THREE.Group();
+    knee.position.y = -seg;
+    hip.add(pill(col, rU, seg + rU * 1.6, [0, -seg / 2, 0]), knee);
+    knee.add(pill(col, rL, seg + rL, [0, -seg / 2 + rL * 0.3, 0]), part(G.ballLow, foot, [0, -seg + 0.05, rL * 0.35], [rL * 1.35, 0.06, rL * 1.75]));
+    g.add(hip);
+    legs.push({ hip, knee, off });
+  }
+  return legs;
+}
+
+/**
+ * 네발 동물이 달리는 동작을 한 프레임만큼 맞춘다. 다리를 앞뒤로 젓고, 머리를 끄덕이고, 꼬리를 흔든다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Group} g addLegs로 다리를 붙인 동물 모델
+ * @param {number} phase 달리기 박자(rad). 시간에 비례해 키운다
+ * @param {number} amp 동작 크기. 0이면 가만히 선 자세다
+ */
+export function runQuad(g: THREE.Group, phase: number, amp = 1): void {
+  const rig = g.userData.rig as QuadRig | undefined;
+  if (!rig) return;
+  for (const l of rig.legs) {
+    l.hip.rotation.x = Math.sin(phase + l.off) * 0.85 * amp;
+    // 발을 앞으로 가져오는 동안에는 무릎을 접어 땅에 끌리지 않게 한다.
+    l.knee.rotation.x = Math.max(0, -Math.cos(phase + l.off)) * 1.15 * amp;
+  }
+  if (rig.head) rig.head.rotation.x = Math.sin(phase * 2) * 0.07 * amp;
+  if (rig.tail) rig.tail.rotation.y = Math.sin(phase * 0.5) * 0.35;
+}
+
+/**
+ * 등을 덮는 줄무늬 하나를 만든다. 몸은 +z를 보는 것으로 가정한다.
+ * @author heojeehaeng(claude)
+ * @param {number} color 줄무늬 색
+ * @param {number[]} pos 몸통 중심선 위의 위치 [x, y, z]
+ * @param {number} r 반지름. 몸통보다 조금 커야 겉으로 드러난다
+ * @param {number} w 줄무늬 폭(m)
+ * @return {THREE.Mesh} 줄무늬
+ */
+function stripe(color: number, pos: number[], r: number, w: number): THREE.Mesh {
+  const s = part(G.half, color, pos, [r, w, r]);
+  // 반원기둥의 축을 몸통 방향으로 눕혀 둥근 쪽이 위를 향하게 한다.
+  s.rotation.x = -Math.PI / 2;
+  return s;
+}
+
+/**
+ * 민화풍 호랑이 모델을 만든다. 등에 줄무늬, 이마에 임금 왕(王) 자 무늬가 있고 까치 한 마리가 위에서 따라다닌다.
+ * @author heojeehaeng(claude)
+ * @return {THREE.Group} 호랑이 모델. 머리는 +x 방향이다. userData.rig로 달리는 동작을 준다
  */
 export function makeTiger(): THREE.Group {
   const g = new THREE.Group();
+  const m = new THREE.Group();
+  // 몸은 +z를 보게 만든 뒤 통째로 돌려 머리가 +x를 향하게 한다.
+  m.rotation.y = Math.PI / 2;
   const fur = 0xee9a2e;
-  g.add(pill(fur, 0.36, 1.9, [0, 0.78, 0], 'x'), part(G.ball, 0xfff3d6, [0.1, 0.62, 0], [0.7, 0.24, 0.3]));
-  for (const sx of [-0.55, -0.15, 0.25]) {
-    const stripe = part(G.tube, 0x1e1a16, [sx, 0.82, 0], [0.365, 0.1, 0.365]);
-    stripe.rotation.z = Math.PI / 2;
-    stripe.scale.set(0.37, 0.09, 0.37);
-    g.add(stripe);
-  }
-  g.add(part(G.ball, fur, [1.12, 1.02, 0], [0.42, 0.4, 0.42]), part(G.ball, 0xfff3d6, [1.42, 0.92, 0], [0.2, 0.17, 0.26]));
-  g.add(part(G.ballLow, 0x151515, [1.6, 0.98, 0], [0.05, 0.05, 0.08]));
+  const pale = 0xfff3d6;
+  const dark = 0x1e1a16;
+  m.add(pill(fur, 0.36, 1.7, [0, 0.84, 0], 'z'), part(G.ball, fur, [0, 0.9, 0.5], [0.41, 0.41, 0.42]), part(G.ball, fur, [0, 0.86, -0.52], [0.39, 0.39, 0.4]));
+  m.add(part(G.ball, pale, [0, 0.66, 0.05], [0.27, 0.2, 0.74]));
+  for (const z of [-0.62, -0.36, -0.1, 0.16, 0.42]) m.add(stripe(dark, [0, 0.87, z], z > 0.3 || z < -0.4 ? 0.425 : 0.385, 0.075));
+  const legs = addLegs(m, fur, pale, 0.6, 0.23, 0.52, 0.52, 0.125, 0.1);
+  for (const l of legs) l.hip.add(part(G.tube, dark, [0, -0.13, 0], [0.136, 0.05, 0.136]));
+  const head = new THREE.Group();
+  head.position.set(0, 1.08, 0.98);
+  head.add(part(G.ball, fur, [0, 0, 0], [0.42, 0.38, 0.38]), part(G.ball, pale, [0, -0.1, 0.3], [0.19, 0.14, 0.14]));
+  head.add(part(G.ballLow, 0xd9737f, [0, -0.03, 0.43], [0.06, 0.04, 0.04]), part(G.cube, dark, [0, -0.15, 0.42], [0.1, 0.016, 0.02]));
   for (const s of [-1, 1]) {
-    g.add(part(G.ballLow, fur, [1.05, 1.4, s * 0.26], [0.12, 0.14, 0.1]), part(G.cube, 0x1e1a16, [1.2, 1.3, s * 0.12], [0.03, 0.14, 0.05]));
-    for (const lx of [-0.62, 0.62]) g.add(pill(fur, 0.11, 0.56, [lx, 0.28, s * 0.22]));
+    head.add(part(G.ball, pale, [s * 0.24, -0.1, 0.16], [0.18, 0.17, 0.18]), part(G.cube, dark, [s * 0.385, 0.02, 0.08], [0.03, 0.04, 0.16]));
+    head.add(part(G.ballLow, fur, [s * 0.28, 0.3, -0.05], [0.13, 0.14, 0.07]), part(G.ballLow, 0x3a2a20, [s * 0.28, 0.29, -0.005], [0.07, 0.08, 0.04]));
   }
-  addEyes(g, [1.46, 1.12, 0], 'x', 0.17, 0.055);
-  const tail = pill(fur, 0.07, 0.9, [-1.25, 1.1, 0]);
-  tail.rotation.z = 0.7;
-  g.add(tail, part(G.ballLow, 0x1e1a16, [-1.56, 1.42, 0], [0.09, 0.09, 0.09]));
+  // 이마의 임금 왕(王) 자 무늬
+  for (const [y, z, w] of [[0.27, 0.275, 0.15], [0.21, 0.322, 0.1], [0.15, 0.352, 0.15]]) head.add(part(G.cube, dark, [0, y, z], [w, 0.028, 0.03]));
+  const bar = part(G.cube, dark, [0, 0.21, 0.325], [0.028, 0.15, 0.03]);
+  bar.rotation.x = -0.6;
+  head.add(bar);
+  addEyes(head, [0, 0.06, 0.335], 'z', 0.16, 0.055);
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.95, -0.86);
+  const t1 = pill(fur, 0.075, 0.62, [0, 0.12, -0.22]);
+  t1.rotation.x = -1.0;
+  const t2 = pill(fur, 0.07, 0.5, [0, 0.5, -0.5]);
+  t2.rotation.x = -0.25;
+  const ring1 = part(G.tube, dark, [0, 0.2, -0.34], [0.085, 0.06, 0.085]);
+  ring1.rotation.x = -1.0;
+  const ring2 = part(G.tube, dark, [0, 0.46, -0.49], [0.08, 0.06, 0.08]);
+  ring2.rotation.x = -0.25;
+  tail.add(t1, t2, ring1, ring2, part(G.ballLow, dark, [0, 0.76, -0.56], [0.09, 0.1, 0.09]));
+  m.add(head, tail);
   const magpie = new THREE.Group();
   magpie.add(part(G.ballLow, 0x151515, [0, 0, 0], [0.2, 0.13, 0.13]), part(G.ballLow, 0xffffff, [0.02, -0.05, 0], [0.13, 0.08, 0.1]));
   magpie.add(part(G.cone, 0xe0a030, [0.24, 0.02, 0], [0.03, 0.1, 0.03]), part(G.cube, 0x151515, [-0.26, 0.04, 0], [0.22, 0.03, 0.08]));
   magpie.children[2].rotation.z = -Math.PI / 2;
-  magpie.position.set(0.4, 2.1, 0);
-  g.add(magpie, blob(1.3, 0.5));
+  magpie.position.set(0.4, 2.2, 0);
+  g.add(m, magpie, blob(1.3, 0.5));
   g.userData.magpie = magpie;
+  g.userData.rig = { legs, head, tail };
   return g;
 }
 
@@ -874,20 +992,31 @@ export function makeGiraffe(neckLen: number): THREE.Group {
   const g = new THREE.Group();
   const col = 0xecc04a;
   const spot = 0xa8701f;
-  for (const lx of [-0.36, 0.36]) for (const lz of [-0.6, 0.6]) g.add(pill(col, 0.11, 1.3, [lx, 0.62, lz]), part(G.ballLow, 0x4a3520, [lx, 0.06, lz], [0.13, 0.08, 0.14]));
-  g.add(pill(col, 0.5, 2.1, [0, 1.6, 0], 'z'));
-  for (const [sx, sy, sz] of [[0.42, 1.75, 0.4], [-0.44, 1.6, -0.2], [0.4, 1.5, -0.55], [-0.38, 1.82, 0.55], [0, 2.08, 0.1]]) g.add(part(G.ballLow, spot, [sx, sy, sz], [0.16, 0.16, 0.16]));
-  const tail = pill(col, 0.04, 0.7, [0, 1.3, -1.15]);
-  tail.rotation.x = -0.4;
+  const dark = 0x4a3520;
+  const legs = addLegs(g, col, dark, 1.18, 0.34, 0.62, 0.62, 0.115, 0.085);
+  for (const [i, l] of legs.entries()) l.hip.add(part(G.ballLow, spot, [i % 2 ? 0.08 : -0.08, -0.22, 0.03], [0.07, 0.11, 0.07]));
+  g.add(pill(col, 0.48, 2.0, [0, 1.62, 0], 'z'));
+  const spots = [[0.42, 1.78, 0.42, 0.17], [-0.44, 1.62, -0.2, 0.19], [0.42, 1.5, -0.5, 0.15], [-0.38, 1.84, 0.55, 0.16], [0, 2.09, 0.1, 0.18], [0.1, 2.05, -0.55, 0.14], [-0.43, 1.45, 0.3, 0.13], [0.45, 1.66, -0.05, 0.14], [-0.2, 2.0, -0.75, 0.13]];
+  for (const [sx, sy, sz, r] of spots) g.add(part(G.ballLow, spot, [sx, sy, sz], [r, r * 0.9, r]));
+  const tail = new THREE.Group();
+  tail.position.set(0, 1.78, -1.0);
+  const strand = pill(col, 0.04, 0.8, [0, -0.33, -0.13]);
+  strand.rotation.x = -0.35;
+  tail.add(strand, part(G.ballLow, dark, [0, -0.7, -0.27], [0.08, 0.12, 0.08]));
   g.add(tail);
   const neck = new THREE.Group();
   neck.position.set(0, 1.6, 0);
   neck.add(pill(col, 0.19, neckLen + 0.3, [neckLen / 2, 0, 0], 'x'));
-  for (let i = 1; i < neckLen; i += 1.1) neck.add(part(G.ballLow, spot, [i, 0.13 * (i % 2 ? 1 : -1), 0.1 * (i % 3 ? 1 : -1)], [0.16, 0.12, 0.12]));
+  // 목덜미를 따라 난 갈기
+  neck.add(part(G.cube, spot, [neckLen / 2 + 0.2, 0.2, 0], [neckLen - 0.2, 0.07, 0.05]));
+  for (let i = 0.9; i < neckLen; i += 0.75) {
+    const k = Math.round(i / 0.75);
+    neck.add(part(G.ballLow, spot, [i, 0.1 * (k % 2 ? 1 : -1), 0.13 * (k % 3 ? 1 : -1)], [0.15, 0.11, 0.1]));
+  }
   neck.add(part(G.ball, col, [neckLen + 0.35, 0, 0], [0.5, 0.26, 0.27]), part(G.ball, 0xf6e2b0, [neckLen + 0.72, -0.03, 0], [0.2, 0.17, 0.2]));
   for (const s of [-1, 1]) {
-    neck.add(pill(spot, 0.04, 0.34, [neckLen + 0.2, 0.36, s * 0.12]), part(G.ballLow, spot, [neckLen + 0.2, 0.55, s * 0.12], [0.07, 0.07, 0.07]));
-    neck.add(part(G.ballLow, col, [neckLen + 0.05, 0.18, s * 0.3], [0.08, 0.06, 0.14]));
+    neck.add(pill(spot, 0.04, 0.34, [neckLen + 0.2, 0.36, s * 0.12]), part(G.ballLow, dark, [neckLen + 0.2, 0.55, s * 0.12], [0.07, 0.07, 0.07]));
+    neck.add(part(G.ballLow, col, [neckLen + 0.05, 0.18, s * 0.3], [0.08, 0.06, 0.14]), part(G.ballLow, dark, [neckLen + 0.88, 0, s * 0.08], [0.03, 0.03, 0.03]));
   }
   addEyes(neck, [neckLen + 0.52, 0.1, 0], 'x', 0.22, 0.05);
   // 탈북 보따리
@@ -898,88 +1027,107 @@ export function makeGiraffe(neckLen: number): THREE.Group {
 }
 
 /**
- * 고양이 모델을 만든다. 머리는 +x 방향이다.
+ * 부대에 사는 고양이 모델을 만든다. 줄무늬가 있고 방울 달린 목줄을 찼다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 고양이 모델
+ * @return {THREE.Group} 고양이 모델. 머리는 +x 방향이다. userData.rig로 달리는 동작을 준다
  */
 export function makeCat(): THREE.Group {
   const g = new THREE.Group();
-  const fur = 0x9aa0a8;
-  g.add(pill(fur, 0.17, 0.85, [0, 0.38, 0], 'x'), part(G.ball, fur, [0.48, 0.55, 0], [0.2, 0.19, 0.2]));
-  g.add(part(G.ballLow, 0xffffff, [0.62, 0.5, 0], [0.09, 0.07, 0.11]), part(G.ballLow, 0xe58a9a, [0.7, 0.53, 0], [0.025, 0.02, 0.03]));
-  for (const s of [-1, 1]) {
-    g.add(part(G.cone, fur, [0.44, 0.78, s * 0.11], [0.07, 0.15, 0.07]));
-    for (const lx of [-0.28, 0.28]) g.add(pill(fur, 0.05, 0.26, [lx, 0.13, s * 0.1]));
-  }
-  addEyes(g, [0.63, 0.6, 0], 'x', 0.09, 0.035);
-  const tail = pill(fur, 0.04, 0.55, [-0.48, 0.66, 0]);
-  tail.rotation.z = 0.5;
-  g.add(tail, blob(0.6, 0.28));
+  const m = new THREE.Group();
+  // 몸은 +z를 보게 만든 뒤 통째로 돌려 머리가 +x를 향하게 한다.
+  m.rotation.y = Math.PI / 2;
+  const fur = 0x9299a2;
+  const dark = 0x5d636c;
+  m.add(pill(fur, 0.15, 0.68, [0, 0.38, 0], 'z'), part(G.ball, 0xffffff, [0, 0.33, 0.22], [0.1, 0.1, 0.12]));
+  for (const z of [-0.2, -0.03, 0.14]) m.add(stripe(dark, [0, 0.385, z], 0.158, 0.04));
+  const legs = addLegs(m, fur, 0xffffff, 0.26, 0.09, 0.22, 0.22, 0.05, 0.042);
+  const head = new THREE.Group();
+  head.position.set(0, 0.57, 0.42);
+  head.add(part(G.ball, fur, [0, 0, 0], [0.19, 0.17, 0.17]), part(G.ballLow, 0xffffff, [0, -0.05, 0.13], [0.09, 0.065, 0.07]));
+  head.add(part(G.ballLow, 0xe58a9a, [0, -0.02, 0.2], [0.025, 0.02, 0.02]));
+  for (const s of [-1, 1]) head.add(part(G.cone, fur, [s * 0.11, 0.2, -0.02], [0.07, 0.15, 0.05]), part(G.cone, 0xe9a9b3, [s * 0.11, 0.19, 0.005], [0.04, 0.1, 0.03]));
+  addEyes(head, [0, 0.03, 0.148], 'z', 0.085, 0.035);
+  const collar = part(G.tube, 0xc0392b, [0, 0.47, 0.3], [0.1, 0.035, 0.1]);
+  collar.rotation.x = 1.1;
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.46, -0.34);
+  const strand = pill(fur, 0.035, 0.5, [0, 0.2, -0.08]);
+  strand.rotation.x = -0.35;
+  tail.add(strand, part(G.ballLow, dark, [0, 0.43, -0.16], [0.045, 0.06, 0.045]));
+  m.add(head, collar, part(G.ballLow, 0xf2c230, [0, 0.4, 0.38], [0.035, 0.035, 0.035]), tail);
+  g.add(m, blob(0.6, 0.28));
+  g.userData.rig = { legs, head, tail };
   return g;
 }
 
 /**
- * 고라니 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
+ * 고라니 모델을 만든다. 뿔 대신 송곳니가 있고 엉덩이가 희다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 고라니 모델. userData.legs에 다리가 들어 있다
+ * @return {THREE.Group} 고라니 모델. userData.rig로 달리는 동작을 준다
  */
 export function makeDeer(): THREE.Group {
   const g = new THREE.Group();
   const col = 0xb08a58;
-  g.add(pill(col, 0.27, 1.25, [0, 0.88, 0], 'z'), part(G.ball, 0xf0dfc0, [0, 0.76, 0], [0.2, 0.14, 0.5]));
-  const neck = pill(col, 0.12, 0.6, [0, 1.15, 0.52]);
-  neck.rotation.x = 0.5;
-  g.add(neck, part(G.ball, col, [0, 1.38, 0.72], [0.19, 0.19, 0.26]), part(G.ballLow, 0x2a2018, [0, 1.33, 0.97], [0.05, 0.04, 0.04]));
+  const pale = 0xf0dfc0;
+  const dark = 0x2a2018;
+  g.add(pill(col, 0.25, 1.15, [0, 0.95, 0], 'z'), part(G.ball, pale, [0, 0.82, 0], [0.19, 0.14, 0.5]), part(G.ball, col, [0, 0.98, 0.36], [0.26, 0.27, 0.28]));
+  const legs = addLegs(g, col, dark, 0.74, 0.14, 0.4, 0.42, 0.062, 0.045);
+  const neck = pill(col, 0.115, 0.62, [0, 1.27, 0.5]);
+  neck.rotation.x = 0.55;
+  const head = new THREE.Group();
+  head.position.set(0, 1.52, 0.7);
+  head.add(part(G.ball, col, [0, 0, 0], [0.17, 0.17, 0.24]), part(G.ball, pale, [0, -0.04, 0.19], [0.1, 0.09, 0.1]), part(G.ballLow, dark, [0, -0.01, 0.29], [0.045, 0.035, 0.03]));
   for (const s of [-1, 1]) {
-    g.add(part(G.ballLow, col, [s * 0.17, 1.6, 0.62], [0.06, 0.14, 0.04]));
+    const ear = part(G.ballLow, col, [s * 0.18, 0.2, -0.06], [0.07, 0.15, 0.035]);
+    ear.rotation.z = -s * 0.5;
+    const inner = part(G.ballLow, pale, [s * 0.18, 0.2, -0.035], [0.04, 0.1, 0.02]);
+    inner.rotation.z = -s * 0.5;
     // 고라니는 뿔 대신 송곳니가 있다.
-    g.add(part(G.cone, 0xffffff, [s * 0.07, 1.2, 0.9], [0.02, 0.12, 0.02]));
+    const fang = part(G.cone, 0xffffff, [s * 0.05, -0.15, 0.22], [0.018, 0.11, 0.018]);
+    fang.rotation.x = Math.PI;
+    head.add(ear, inner, fang);
   }
-  g.children.filter((c) => (c as THREE.Mesh).geometry === G.cone).forEach((c) => (c.rotation.x = Math.PI));
-  addEyes(g, [0, 1.43, 0.9], 'z', 0.13, 0.04);
-  const legs: THREE.Mesh[] = [];
-  for (const lx of [-0.15, 0.15]) {
-    for (const lz of [-0.42, 0.42]) {
-      const leg = pill(col, 0.055, 0.66, [lx, 0.33, lz]);
-      legs.push(leg);
-      g.add(leg);
-    }
-  }
-  g.add(part(G.ballLow, 0xffffff, [0, 0.98, -0.66], [0.08, 0.08, 0.06]), blob(0.4, 0.8));
-  g.userData.legs = legs;
+  addEyes(head, [0, 0.05, 0.17], 'z', 0.125, 0.04);
+  g.add(neck, head, part(G.ball, pale, [0, 1.0, -0.56], [0.16, 0.16, 0.08]), part(G.ballLow, col, [0, 1.12, -0.6], [0.05, 0.07, 0.05]), blob(0.4, 0.8));
+  g.userData.rig = { legs, head };
   return g;
 }
 
 /**
- * 멧돼지 모델을 만든다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
+ * 멧돼지 모델을 만든다. 어깨가 솟고 엄니와 갈기가 있다. 머리는 +z(달려오는 플레이어 쪽) 방향이다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 멧돼지 모델. userData.legs에 다리가 들어 있다
+ * @return {THREE.Group} 멧돼지 모델. userData.rig로 달리는 동작을 준다
  */
 export function makeBoar(): THREE.Group {
   const g = new THREE.Group();
   const col = 0x54402f;
-  g.add(pill(col, 0.5, 1.75, [0, 0.82, 0], 'z'), part(G.ball, col, [0, 0.8, 0.95], [0.4, 0.38, 0.42]));
-  const snout = part(G.tube, 0x8a6a5a, [0, 0.68, 1.36], [0.17, 0.2, 0.15]);
+  const dark = 0x2a2018;
+  g.add(pill(col, 0.46, 1.5, [0, 0.82, -0.05], 'z'), part(G.ball, col, [0, 1.0, 0.3], [0.5, 0.48, 0.55]), part(G.ball, col, [0, 0.8, -0.6], [0.42, 0.42, 0.4]));
+  const legs = addLegs(g, col, dark, 0.5, 0.27, 0.5, 0.55, 0.11, 0.085);
+  const head = new THREE.Group();
+  head.position.set(0, 0.84, 0.95);
+  head.add(part(G.ball, col, [0, 0, 0], [0.38, 0.36, 0.42]));
+  const snout = part(G.tube, 0x8a6a5a, [0, -0.12, 0.42], [0.17, 0.2, 0.15]);
   snout.rotation.x = Math.PI / 2;
-  g.add(snout, part(G.ballLow, 0x2a1c14, [-0.06, 0.68, 1.47], [0.03, 0.04, 0.02]), part(G.ballLow, 0x2a1c14, [0.06, 0.68, 1.47], [0.03, 0.04, 0.02]));
-  // 등줄기를 따라 선 갈기
-  for (let z = -0.7; z <= 0.7; z += 0.28) g.add(part(G.cone, 0x2a2018, [0, 1.42, z], [0.09, 0.3, 0.09]));
+  head.add(snout);
   for (const s of [-1, 1]) {
-    const tusk = part(G.cone, 0xfff3d6, [s * 0.24, 0.72, 1.3], [0.04, 0.24, 0.04]);
-    tusk.rotation.z = s * -0.35;
-    g.add(tusk, part(G.ballLow, col, [s * 0.3, 1.15, 0.8], [0.1, 0.14, 0.06]));
+    const tusk = part(G.cone, 0xfff3d6, [s * 0.23, -0.08, 0.36], [0.045, 0.26, 0.045]);
+    tusk.rotation.z = -s * 0.35;
+    // 화난 눈썹: 안쪽 끝을 내려 찌푸린 표정을 만든다.
+    const brow = part(G.cube, dark, [s * 0.19, 0.21, 0.36], [0.15, 0.035, 0.03]);
+    brow.rotation.z = s * 0.45;
+    head.add(tusk, brow, part(G.ballLow, dark, [s * 0.06, -0.12, 0.53], [0.03, 0.04, 0.02]), part(G.ballLow, col, [s * 0.3, 0.32, -0.12], [0.1, 0.14, 0.06]));
   }
-  addEyes(g, [0, 0.95, 1.3], 'z', 0.2, 0.045);
-  const legs: THREE.Mesh[] = [];
-  for (const lx of [-0.3, 0.3]) {
-    for (const lz of [-0.55, 0.55]) {
-      const leg = pill(col, 0.09, 0.5, [lx, 0.25, lz]);
-      legs.push(leg);
-      g.add(leg);
-    }
-  }
-  g.add(blob(0.75, 1.15));
-  g.userData.legs = legs;
+  addEyes(head, [0, 0.12, 0.35], 'z', 0.19, 0.045);
+  // 등줄기를 따라 선 갈기
+  for (let z = -0.7; z <= 0.62; z += 0.22) g.add(part(G.cone, dark, [0, z > 0 ? 1.56 : 1.36, z], [0.09, 0.3, 0.09]));
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.95, -0.98);
+  const strand = pill(col, 0.03, 0.4, [0, -0.12, -0.1]);
+  strand.rotation.x = -0.6;
+  tail.add(strand, part(G.ballLow, dark, [0, -0.28, -0.2], [0.05, 0.07, 0.05]));
+  g.add(head, tail, blob(0.75, 1.15));
+  g.userData.rig = { legs, head, tail };
   return g;
 }
 

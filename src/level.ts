@@ -4,7 +4,7 @@ import {
   Barrier, Bear, Cart, Crowd, Ctx, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
 } from './entities';
-import { box, makeCutout, makePerson, makeSign, mat, PersonOpts } from './models';
+import { box, makeCutout, makeDeer, makePerson, makeSign, mat, PersonOpts } from './models';
 import { hasProps } from './props';
 import { buildScenery } from './scenery';
 
@@ -567,9 +567,7 @@ function ssDecor(c: Ctx, put: Put): Decor {
     put(post, s * 9.2, d);
   }
   // 탐조등이 자꾸 비추는 고라니
-  const deer = new THREE.Group();
-  deer.add(box(0.9, 0.5, 0.35, 0x9c7a4d, 0, 0.75, 0), box(0.3, 0.35, 0.3, 0x9c7a4d, 0.55, 1.05, 0));
-  for (const lx of [-0.3, 0.3]) deer.add(box(0.1, 0.5, 0.1, 0x9c7a4d, lx, 0.25, 0));
+  const deer = makeDeer();
   const glow = new THREE.Mesh(new THREE.CircleGeometry(1.6, 20), new THREE.MeshBasicMaterial({ color: 0xfff3a0, transparent: true, opacity: 0.45, depthWrite: false }));
   glow.rotation.x = -Math.PI / 2;
   glow.position.y = 0.05;
