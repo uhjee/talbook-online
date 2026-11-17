@@ -5,6 +5,8 @@ import {
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
 } from './entities';
 import { box, makeCutout, makePerson, makeSign, mat, PersonOpts } from './models';
+import { hasProps } from './props';
+import { buildScenery } from './scenery';
 
 export interface Decor {
   /** 생활관 문의 경첩 관절. y축으로 돌리면 문이 열린다 */
@@ -347,6 +349,7 @@ export function buildDecor(c: Ctx): Decor {
     flag.add(box(0.08, 2.6, 0.08, 0xdddddd, 0, 1.3, 0), box(0.9, 0.5, 0.04, 0x2ecc71, 0.48, 2.3, 0));
     put(flag, -4.4, cp);
   }
+  buildScenery(c);
   return ssDecor(c, put);
 }
 
@@ -510,7 +513,8 @@ function dmzDecor(put: Put): void {
   put(makeSign('지뢰 조심\n(아마도 이쪽 ↙ ↓ ↘)', 2.8, 1.3, '#ffd23f', '#1a1a1a', 1.4), 5.6, from + 84, -0.3);
   const trunk = new THREE.BoxGeometry(0.4, 1.4, 0.4);
   const leafGeo = [new THREE.ConeGeometry(1.4, 3.5, 7), new THREE.ConeGeometry(1.8, 5, 7), new THREE.ConeGeometry(1.5, 6, 7)];
-  for (let i = 0; i < 190; i++) {
+  // 배경 모델을 불러오지 못했을 때만 기본 도형 나무로 숲을 대신한다.
+  for (let i = 0; i < (hasProps() ? 0 : 190); i++) {
     const d = from + 8 + rnd() * (to - from - 12);
     const s = rnd() < 0.5 ? -1 : 1;
     const tree = new THREE.Group();

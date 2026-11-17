@@ -1,0 +1,5 @@
+The 3D models in this folder come from asset packs by Kenney (www.kenney.nl):
+Nature Kit, City Kit (Commercial), City Kit (Industrial), Survival Kit.
+
+License: Creative Commons Zero (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/

@@ -569,3 +569,8 @@ button.primary {
     transform: rotate(9deg);
   }
 }
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

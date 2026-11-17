@@ -5,6 +5,7 @@ import { Fx } from './fx';
 import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
 import { Player } from './player';
+import { loadProps } from './props';
 import { Hud, pickTitle, RunResult, saveRecord, shareCard, showFail, showRanking, showResult, validateNick } from './ui';
 import { World } from './world';
 
@@ -442,6 +443,16 @@ class Game implements Ctx {
   }
 }
 
-const game = new Game();
-// 개발 서버에서만 콘솔로 상태를 들여다볼 수 있게 한다.
-if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) (window as unknown as { __game: Game }).__game = game;
+// 배경 모델을 먼저 받아야 코스를 만들 수 있으므로, 그동안 시작 단추를 잠가 둔다.
+const startBtn = document.getElementById('btn-start') as HTMLButtonElement;
+startBtn.disabled = true;
+startBtn.textContent = '불러오는 중…';
+loadProps((done, total) => {
+  startBtn.textContent = `불러오는 중… ${Math.round((done / total) * 100)}%`;
+}).then(() => {
+  const game = new Game();
+  startBtn.disabled = false;
+  startBtn.textContent = '탈북 시작';
+  // 개발 서버에서만 콘솔로 상태를 들여다볼 수 있게 한다.
+  if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) (window as unknown as { __game: Game }).__game = game;
+});
