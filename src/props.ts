@@ -23,7 +23,7 @@ const MODELS: Record<string, string[]> = {
   ],
   survival: [
     'barrel', 'box', 'box-large', 'bucket', 'fence-fortified', 'tent-canvas', 'tool-pickaxe', 'tool-shovel',
-    'resource-stone-large', 'resource-planks', 'structure-metal', 'workbench',
+    'resource-stone-large', 'resource-planks', 'structure-metal', 'workbench', 'rock-a', 'rock-b',
   ],
 };
 
@@ -139,7 +139,8 @@ const hsl = { h: 0, s: 0, l: 0 };
  */
 function grade(c: THREE.Color): void {
   c.getHSL(hsl, THREE.SRGBColorSpace);
-  const teal = hsl.h > 0.36 && hsl.h < 0.55;
+  // 채도가 낮은 회색 돌은 잎이 아니므로 녹색으로 옮기지 않는다.
+  const teal = hsl.h > 0.36 && hsl.h < 0.55 && hsl.s > 0.3;
   const warm = hsl.h < 0.12 || hsl.h > 0.94;
   if (teal) hsl.h = 0.27 + (hsl.h - 0.36) * 0.35;
   c.setHSL(hsl.h, hsl.s * (warm ? 0.38 : teal ? 0.7 : 0.85), hsl.l * (teal ? 0.6 : warm ? 0.62 : 0.72), THREE.SRGBColorSpace);

@@ -60,6 +60,21 @@ function surfaceTexture(color: number, kind: 'plain' | 'grass' | 'dirt' | 'city'
   return t;
 }
 
+/**
+ * 물체가 바닥에 그림자를 드리우게 한다. 빛을 받지 않는 재질(말풍선, 시야 표시, 발밑 원)과 반투명한 것은 뺀다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Object3D} root 물체
+ */
+export function castShadows(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const m = mesh.material as THREE.Material;
+    if (Array.isArray(m) || m.transparent || (m as THREE.MeshBasicMaterial).isMeshBasicMaterial) return;
+    mesh.castShadow = true;
+  });
+}
+
 export interface Env {
   sky: THREE.Color;
   top: THREE.Color;
@@ -99,6 +114,7 @@ export class World {
       const road = new THREE.Mesh(new THREE.PlaneGeometry(8.6, len), new THREE.MeshLambertMaterial({ map: roadTex }));
       road.rotation.x = -Math.PI / 2;
       road.position.set(0, 0, mid);
+      ground.receiveShadow = road.receiveShadow = true;
       scene.add(ground, road);
     }
     this.buildMine();
@@ -150,6 +166,7 @@ export class World {
   }
 
   private place(map: Map<number, THREE.Group>, alwaysGroup: THREE.Group, obj: THREE.Object3D, d: number, always: boolean): void {
+    castShadows(obj);
     if (always) {
       alwaysGroup.add(obj);
       return;

@@ -5,6 +5,7 @@ import { Fx } from './fx';
 import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
 import { Player } from './player';
+import { Outline } from './post';
 import { loadProps } from './props';
 import { Hud, pickTitle, RunResult, saveRecord, shareCard, showFail, showRanking, showResult, validateNick } from './ui';
 import { World } from './world';
@@ -53,6 +54,7 @@ class Game implements Ctx {
   private shoutT = -10;
   private lastLine = -1;
   private headPos = new THREE.Vector3();
+  private outline: Outline | null = null;
 
   player = new Player();
   time = 0;
@@ -68,7 +70,24 @@ class Game implements Ctx {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.scene.fog = this.fog;
     this.sun.position.set(5, 9, 7);
-    this.scene.add(this.hemi, this.sun, this.player.group);
+    // 해가 리용길 주변에만 그림자를 드리우게 한다. 터치 기기에서는 그림자 해상도를 낮춰 부담을 줄인다.
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = coarse ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
+    const sc = this.sun.shadow.camera;
+    sc.left = -30;
+    sc.right = 30;
+    sc.top = 34;
+    sc.bottom = -30;
+    sc.near = 1;
+    sc.far = 90;
+    this.sun.shadow.bias = -0.0006;
+    this.sun.shadow.normalBias = 0.04;
+    this.scene.add(this.hemi, this.sun, this.sun.target, this.player.group);
+    // 외곽선 후처리는 깊이 그림을 읽어야 해서 WebGL2에서만 켠다.
+    if (this.renderer.capabilities.isWebGL2) this.outline = new Outline(this.renderer, this.camera);
     this.shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.5, 16),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }),
@@ -255,6 +274,7 @@ class Game implements Ctx {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.renderer.setSize(w, h, false);
+    this.outline?.setSize(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     // 세로 화면에서는 좌우가 좁아 보이지 않도록 시야각을 넓힌다.
     this.fov = w < h ? 80 : 62;
@@ -428,7 +448,12 @@ class Game implements Ctx {
       this.camera.fov = this.fov;
       this.camera.updateProjectionMatrix();
     }
-    this.renderer.render(this.scene, this.camera);
+    // 그림자 범위가 리용길을 따라가게 한다. 1m 단위로만 옮겨 그림자 가장자리가 떨리는 것을 줄인다.
+    const sz = -Math.round(p.d) - 16;
+    this.sun.target.position.set(0, 0, sz);
+    this.sun.position.set(12, 22, sz + 16);
+    if (this.outline) this.outline.render(this.scene, this.camera);
+    else this.renderer.render(this.scene, this.camera);
 
     this.hud.rush(this.state === 'play' && p.boosting);
     if (this.hud.shouting) {

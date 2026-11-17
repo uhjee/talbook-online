@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
 import { Input } from './input';
 import { HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
+import { castShadows } from './world';
 
 const GRAVITY = 22;
 const JUMP_V = 7.6;
@@ -178,6 +179,8 @@ export class Player {
     if (this.hits !== this.wear) {
       this.wear = this.hits;
       setHeroWear(this.model, this.hits);
+      // 찢긴 옷자락처럼 새로 붙은 부품도 그림자를 드리우게 한다.
+      castShadows(this.model);
     }
     this.group.visible = this.invulnT <= 0 || Math.floor(this.invulnT * 16) % 2 === 0;
     const p = this.pivot;

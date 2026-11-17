@@ -74,7 +74,7 @@ function mineScenery(s: Scatter): void {
     } else if (r < 0.55) s.put('survival/resource-stone-large', x, d, { w: 1.0, ry });
     else if (r < 0.66) s.put('survival/resource-planks', x, d, { w: 0.7, ry: ry * 0.15 });
     else if (r < 0.76) s.put('survival/bucket', x, d, { h: 0.4, ry });
-    else if (r < 0.86) s.put('nature/stone_tallC', x + side * 0.15, d, { h: 1.0 + rnd() * 0.6, ry });
+    else if (r < 0.86) s.put(rnd() < 0.5 ? 'survival/rock-a' : 'survival/rock-b', x + side * 0.1, d, { h: 0.7 + rnd() * 0.5, ry });
     else if (r < 0.93) s.put('survival/tool-pickaxe', x + side * 0.25, d, { h: 0.95, ry: side * Math.PI * 0.5, lean: 0.3 });
     else s.put('survival/tool-shovel', x + side * 0.25, d, { h: 1.15, ry: side * Math.PI * 0.5, lean: 0.25 });
   }
