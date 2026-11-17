@@ -171,7 +171,7 @@ function mineEntities(c: Ctx, es: Entity[], rnd: () => number): void {
  */
 function cityEntities(c: Ctx, es: Entity[], rnd: () => number): void {
   const { from, to } = STAGES[1];
-  es.push(new Hint(from + 6, '붉은 시야에 닿으면 바로 발각! 아래 방향키(길게 누르기)로 죽은 척하면 들키지 않고 천천히 기어갑니다'));
+  es.push(new Hint(from + 6, '붉은 시야에 닿으면 바로 발각! 아래 방향키를 꾹 눌러(화면 길게 누르기) 기어가면 들키지 않습니다'));
   // 감시자의 시야가 닿는 마지막 거리. 다음 감시자는 이 뒤로 숨 돌릴 틈을 두고 세운다.
   let watchEnd = 0;
   /**

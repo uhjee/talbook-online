@@ -337,6 +337,7 @@ body {
   font-family: var(--display);
   font-style: normal;
   font-size: 15px;
+  white-space: nowrap;
 }
 #keys .keys-pc .k em {
   width: 60px;

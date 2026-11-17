@@ -574,7 +574,7 @@ export class Watcher implements Entity {
     const rx = p.x - this.wx;
     const rz = -p.d + this.d;
     const dist = Math.hypot(rx, rz);
-    // 넘어져 있는 동안에는 숨을 방법이 없으므로 발각하지 않는다.
+    // 넘어져 있는 동안에는 기어서 피할 방법이 없으므로 발각하지 않는다.
     if (dist > this.range || p.hiding || c.inCrowd || p.state === 'fall') return;
     let diff = Math.atan2(-rz, rx) - a;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));

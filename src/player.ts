@@ -50,7 +50,7 @@ export class Player {
   }
 
   /**
-   * 슬라이드 중이거나 숨어 있어 몸이 낮은 상태인지 반환한다.
+   * 슬라이드 중이거나 기어가는 중이어서 몸이 낮은 상태인지 반환한다.
    * @author heojeehaeng(claude)
    * @return {boolean} 몸이 낮은 상태 여부
    */
@@ -145,7 +145,7 @@ export class Player {
   private updateRun(dt: number, input: Input): void {
     const grounded = this.y === 0;
     this.hiding = input.hideHeld && grounded;
-    // 죽은 척하는 동안에도 절반 속도로 기어서 움직인다. 멈춰 있으면 일어나는 순간 시야에 걸리는 자리가 생기기 때문이다.
+    // 기어가는 동안에는 절반 속도로 움직인다. 멈춰 있으면 일어나는 순간 시야에 걸리는 자리가 생기기 때문이다.
     const rate = this.hiding ? HIDE_RATE : 1;
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     this.x += (dir * SIDE_SPEED * dt + input.takeDrag()) * rate;

@@ -12,6 +12,8 @@ import { World } from './world';
 
 /** 부스터를 쓸 때 리용길이 외치는 대사 */
 const BOOST_LINES = ['이야호!', '니용앤비용~', '너에게로 달려가는 중\n람보르기니보다 빨리 슝', '분석 중~!?', '난 널 버리지 않아~♪'];
+/** 기어가기를 시작할 때 리용길이 외치는 대사 */
+const CRAWL_LINES = ['엉금엉금 기어서 가자~♪', '각! 개! 전! 투!'];
 
 /** 문 앞 이 거리에서 멈춰 노크한다 */
 const KNOCK_AT = COURSE_LEN - 2.5;
@@ -53,6 +55,8 @@ class Game implements Ctx {
   private seenBoosts = 0;
   private shoutT = -10;
   private lastLine = -1;
+  private crawlLine = Math.floor(Math.random() * CRAWL_LINES.length);
+  private wasCrawling = false;
   private outline: Outline | null = null;
 
   player = new Player();
@@ -310,6 +314,13 @@ class Game implements Ctx {
         this.hud.shout(this.pickBoostLine(), 1500, p.hits);
       }
     }
+    // 기어가기를 시작하는 순간에 한 번 외친다. 두 대사를 번갈아 쓰고, 짧게 끊어 눌러도 대사가 쏟아지지 않게 간격을 둔다.
+    if (p.hiding && !this.wasCrawling && this.time - this.shoutT > 1.2) {
+      this.shoutT = this.time;
+      this.crawlLine = (this.crawlLine + 1) % CRAWL_LINES.length;
+      this.hud.shout(CRAWL_LINES[this.crawlLine], 1500, p.hits);
+    }
+    this.wasCrawling = p.hiding;
     this.inCrowd = false;
     for (const e of this.entities) {
       const dd = e.d - p.d;

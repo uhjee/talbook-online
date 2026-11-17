@@ -1,6 +1,6 @@
-/** 아래 방향키를 이 시간(ms)보다 길게 누르면 슬라이드가 아니라 숨기로 본다 */
+/** 아래 방향키를 이 시간(ms)보다 길게 누르면 슬라이드가 아니라 기어가기로 본다 */
 const KEY_HOLD_MS = 220;
-/** 화면을 움직이지 않고 이 시간(ms)보다 길게 누르면 숨기로 본다 */
+/** 화면을 움직이지 않고 이 시간(ms)보다 길게 누르면 기어가기로 본다 */
 const TOUCH_HOLD_MS = 320;
 const SWIPE_PX = 40;
 /** 이 시간(ms) 안에 화면을 두 번 두드리면 부스터로 본다 */
@@ -40,9 +40,9 @@ export class Input {
   }
 
   /**
-   * 숨기 입력(아래 방향키 또는 화면 길게 누르기)이 유지 중인지 반환한다.
+   * 기어가기 입력(아래 방향키 또는 화면 길게 누르기)이 유지 중인지 반환한다.
    * @author heojeehaeng(claude)
-   * @return {boolean} 숨기 입력 유지 여부
+   * @return {boolean} 기어가기 입력 유지 여부
    */
   get hideHeld(): boolean {
     const now = performance.now();

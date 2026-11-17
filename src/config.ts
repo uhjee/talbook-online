@@ -9,7 +9,7 @@ export const BOOST_AFTER = 10;
 
 /** 부스터: 속도 배율과 지속 시간(초). 대기 시간과 사용량 제한이 없어 누를 때마다 바로 나간다 */
 export const BOOST_MULT = 2.3;
-/** 죽은 척하며 엎드려 있을 때의 이동 속도 배율. 앞으로 기는 속도와 좌우 이동에 모두 적용한다 */
+/** 기어가기 중의 이동 속도 배율. 앞으로 기는 속도와 좌우 이동에 모두 적용한다 */
 export const HIDE_RATE = 0.5;
 export const BOOST_TIME = 0.3;
 

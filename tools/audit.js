@@ -28,7 +28,7 @@ function seenAt(w, x, d) {
 }
 
 /**
- * 현재 화면에 보이는 위협을 보고 갈 차선과 점프, 슬라이드, 숨기 여부를 정한다.
+ * 현재 화면에 보이는 위협을 보고 갈 차선과 점프, 슬라이드, 기어가기 여부를 정한다.
  * @author heojeehaeng(claude)
  * @param {Object} g 게임
  * @return {Object} 목표 x와 누를 동작
