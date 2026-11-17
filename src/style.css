@@ -23,6 +23,10 @@ body {
   color: var(--ink);
   -webkit-user-select: none;
   user-select: none;
+  /* 길게 눌렀을 때 뜨는 돋보기와 메뉴, 누른 자리의 회색 번쩍임, 화면 끝에서 당겨지는 움직임을 끈다. */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
 #game {
   position: fixed;
@@ -31,6 +35,9 @@ body {
   height: 100%;
   display: block;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .hidden {
   display: none !important;
@@ -291,6 +298,46 @@ body {
   font-size: 23px;
   line-height: 1.25;
   white-space: pre;
+}
+
+/* 컴퓨터 화면에서는 대사창을 휴대폰의 두 배 안팎으로 키운다. 휴대폰 크기는 그대로 둔다.
+   --u는 글자 크기의 절반이다. 가장 긴 대사(두 줄)가 화면 가운데의 리용길을 가리지 않도록,
+   리용길 왼쪽에 들어가는 폭과 발밑에 들어가는 높이 중 더 넉넉한 쪽에 맞춰 정한다. */
+@media (min-width: 900px) and (min-height: 620px) {
+  #shout {
+    --u: clamp(11.5px, max((50vw - 22vh - 40px) / 30, (17.5vh - 26px) / 8.1), 26px);
+    left: 20px;
+    bottom: 24px;
+    gap: calc(var(--u) * 0.75);
+  }
+  #shout .face {
+    width: calc(var(--u) * 5.5);
+    height: calc(var(--u) * 5.5);
+    filter: drop-shadow(0 calc(var(--u) * 0.25) 0 var(--ink));
+  }
+  #shout .say {
+    margin-bottom: calc(var(--u) * 0.65);
+    padding: calc(var(--u) * 0.9) calc(var(--u) * 1.25) calc(var(--u) * 0.6);
+    border-width: max(var(--line), calc(var(--u) * 0.17));
+    border-radius: calc(var(--u) * 1.25) calc(var(--u) * 1.25) calc(var(--u) * 1.25) calc(var(--u) * 0.4);
+    box-shadow: 0 calc(var(--u) * 0.25) 0 var(--ink);
+  }
+  #shout .say::before {
+    left: calc(var(--u) * -0.8);
+    bottom: calc(var(--u) * 0.75);
+    border-width: calc(var(--u) * 0.5) calc(var(--u) * 0.67) calc(var(--u) * 0.5) 0;
+  }
+  #shout .say b {
+    left: calc(var(--u) * 0.85);
+    top: calc(var(--u) * -0.9);
+    padding: 0 calc(var(--u) * 0.6);
+    border-width: max(2px, calc(var(--u) * 0.125));
+    font-size: calc(var(--u) * 0.875);
+    line-height: calc(var(--u) * 1.3);
+  }
+  #shout .say span {
+    font-size: calc(var(--u) * 2);
+  }
 }
 
 /* ---------- 조작 안내판 ---------- */

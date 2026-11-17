@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SPEED_BASE, SPEED_MAX } from './config';
 import { Input } from './input';
-import { HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
+import { crawlPerson, HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
 import { castShadows } from './world';
 
 const GRAVITY = 22;
@@ -184,6 +184,8 @@ export class Player {
     }
     this.group.visible = this.invulnT <= 0 || Math.floor(this.invulnT * 16) % 2 === 0;
     const p = this.pivot;
+    // 포복할 때만 쓰는 몸의 좌우 꿈틀거림은 매 프레임 지우고 시작한다.
+    p.rotation.y = p.rotation.z = 0;
     if (this.state === 'fall') {
       p.rotation.x += dt * FALL_RATE * (this.y > 0 ? 14 : 6);
       p.position.y = this.y > 0 ? 0.9 : 0.35;
@@ -195,8 +197,9 @@ export class Player {
     let rot = 0;
     let h = 0.9;
     if (this.hiding) {
-      rot = -Math.PI / 2;
-      h = 0.25;
+      // 가슴을 조금 들고 엎드려 앞을 보며 긴다.
+      rot = -1.44;
+      h = 0.27;
     } else if (this.slideT > 0) {
       rot = 1.2;
       h = 0.35;
@@ -207,9 +210,17 @@ export class Player {
     if (h === 0.9 && this.y === 0) h += Math.abs(Math.sin(this.runPhase)) * 0.06;
     p.rotation.x += (rot - p.rotation.x) * Math.min(1, dt * 18);
     p.position.y += (h - p.position.y) * Math.min(1, dt * 18);
-    this.runPhase += dt * this.speed * 1.1;
-    // 엎드려 길 때는 팔다리를 작게 젓는다.
-    swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.hiding ? 0.45 : this.speed > 0.5 ? 0.9 : 0);
+    // 포복은 달리기보다 한 박자가 길다.
+    this.runPhase += dt * this.speed * (this.hiding ? 0.75 : 1.1);
+    if (this.hiding) {
+      // 포복: 팔과 무릎을 번갈아 당기고, 뻗는 팔 쪽 어깨가 앞으로 나가도록 몸을 좌우로 꿈틀거린다.
+      crawlPerson(this.model, this.runPhase);
+      const s = Math.sin(this.runPhase);
+      p.rotation.z = -s * 0.16;
+      p.rotation.y = s * 0.1;
+      return;
+    }
+    swingPerson(this.model, this.runPhase, this.y > 0 ? 0.3 : this.speed > 0.5 ? 0.9 : 0);
     const { armL, armR, kneeL, kneeR, elbowL, elbowR } = this.model.userData.parts;
     // 뛰어오른 동안에는 무릎을 당겨 올린다.
     if (this.y > 0) kneeL.rotation.x = kneeR.rotation.x = -1.2;

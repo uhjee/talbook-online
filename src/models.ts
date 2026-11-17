@@ -902,6 +902,11 @@ function camoTexture(): THREE.CanvasTexture {
  */
 export function swingPerson(p: THREE.Group, phase: number, amp: number): void {
   const { legL, legR, armL, armR, kneeL, kneeR, elbowL, elbowR } = p.userData.parts;
+  // 포복 자세에서 돌아올 때는 옆으로 벌렸던 관절을 먼저 제자리로 돌린다.
+  if (p.userData.posed) {
+    for (const j of [legL, legR, armL, armR, kneeL, kneeR, elbowL, elbowR]) j.rotation.set(0, 0, 0);
+    p.userData.posed = false;
+  }
   const sin = Math.sin(phase);
   const s = sin * amp;
   legL.rotation.x = s;
@@ -918,6 +923,31 @@ export function swingPerson(p: THREE.Group, phase: number, amp: number): void {
   // 앞으로 나온 팔은 더 굽히고 뒤로 간 팔은 조금 편다.
   elbowL.rotation.x = (1.05 - sin * 0.35) * k;
   elbowR.rotation.x = (1.05 + sin * 0.35) * k;
+}
+
+/**
+ * 엎드린 사람 모델의 팔다리를 포복 박자에 맞춰 움직인다.
+ * 한쪽 팔을 앞으로 뻗는 동안 반대쪽 무릎을 옆으로 끌어 올리고, 다음 박자에 좌우를 바꾼다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.Group} p makePerson으로 만든 모델. 관절 없이 만든 모델은 움직이지 않는다
+ * @param {number} phase 포복 위상(rad)
+ */
+export function crawlPerson(p: THREE.Group, phase: number): void {
+  const { legL, legR, armL, armR, kneeL, kneeR, elbowL, elbowR } = p.userData.parts;
+  if (!kneeL) return;
+  const s = Math.sin(phase);
+  // dir은 왼쪽이 -1, 오른쪽이 1이다. 팔다리를 몸 옆으로 벌려 땅과 나란한 면 안에서 움직이고, 끝이 땅에 닿도록 조금 내린다.
+  const side = (arm: THREE.Group, elbow: THREE.Group, leg: THREE.Group, knee: THREE.Group, dir: number, reach: number) => {
+    const pull = 1 - reach;
+    // 위팔이 앞으로 나가는 만큼 팔꿈치를 펴서, 아래팔은 늘 앞을 향한 채 손만 앞뒤로 오간다.
+    arm.rotation.set(0, dir * 0.3, dir * (1.45 + reach));
+    elbow.rotation.set(0, 0, dir * (1.5 - reach));
+    leg.rotation.set(0, dir * 0.25, dir * (0.1 + 1.25 * pull));
+    knee.rotation.set(0, 0, -dir * (0.1 + 1.6 * pull));
+  };
+  side(armL, elbowL, legL, kneeL, -1, 0.5 + 0.5 * s);
+  side(armR, elbowR, legR, kneeR, 1, 0.5 - 0.5 * s);
+  p.userData.posed = true;
 }
 
 /**

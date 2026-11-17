@@ -37,6 +37,29 @@ export class Input {
     el.addEventListener('pointermove', (e) => this.onMove(e));
     el.addEventListener('pointerup', (e) => this.onUp(e));
     el.addEventListener('pointercancel', (e) => this.onUp(e));
+    Input.blockDefaults(el);
+  }
+
+  /**
+   * 게임 화면을 누르거나 길게 눌렀을 때 브라우저가 하는 기본 동작(돋보기, 글자 선택, 길게 누르기 메뉴, 확대)을 막는다.
+   * 기어가기는 화면을 꾹 누르고 있어야 해서, 아이폰에서는 그대로 두면 돋보기가 뜬다.
+   * @author heojeehaeng(claude)
+   * @param {HTMLElement} el 터치 입력을 받는 요소
+   */
+  private static blockDefaults(el: HTMLElement): void {
+    const stop = (e: Event) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    // 터치 이벤트의 기본 동작을 막아야 아이폰의 돋보기가 뜨지 않는다. 포인터 이벤트는 그대로 들어오므로 조작에는 영향이 없다.
+    for (const type of ['touchstart', 'touchmove', 'touchend']) el.addEventListener(type, stop, { passive: false });
+    el.addEventListener('contextmenu', stop);
+    el.addEventListener('dblclick', stop);
+    // 닉네임 입력 칸에서는 글자를 고를 수 있어야 하므로 그 밖의 자리에서만 선택을 막는다.
+    document.addEventListener('selectstart', (e) => {
+      if (!(e.target instanceof HTMLInputElement)) stop(e);
+    });
+    // 아이폰 사파리 계열의 두 손가락 확대
+    for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, stop, { passive: false });
   }
 
   /**
