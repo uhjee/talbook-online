@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, DETECT_GRACE, FONT, stageAt } from './config';
+import { CHECKPOINTS, COURSE_LEN, FONT, stageAt } from './config';
 import { BUBBLE_TEXT, Ctx, Entity } from './entities';
 import { Fx } from './fx';
 import { Input } from './input';
@@ -49,6 +49,8 @@ class Game implements Ctx {
   private hints = new Set<string>();
   /** 이번 프레임에 시야나 빛에 닿았으면 사유 문구가 들어 있다. 적 갱신이 끝난 뒤 처리한다 */
   private arrestMsg: string | null = null;
+  /** 이번 프레임에 닿은 것이 봐주는 시간(초). 여럿에 닿았으면 가장 짧은 값이다 */
+  private arrestGrace = 0;
   /** 시야나 빛에 끊기지 않고 닿아 있은 시간(초) */
   private seenT = 0;
   private fov = 62;
@@ -127,13 +129,16 @@ class Game implements Ctx {
   }
 
   /**
-   * 이번 프레임에 플레이어가 시야나 빛에 닿았음을 알린다. 잠깐 스친 것은 봐주고, 정해진 시간 넘게 계속 닿아 있으면 붙잡는다.
+   * 이번 프레임에 플레이어가 시야나 빛에 닿았음을 알린다. 봐주는 시간 넘게 계속 닿아 있으면 붙잡는다.
    * 다시 출발한 직후의 무적 시간에는 무시한다.
    * @author heojeehaeng(claude)
    * @param {string} msg 발각 사유 문구
+   * @param {number} grace 봐주는 시간(초). 0이면 닿는 즉시 붙잡는다
    */
-  detect(msg: string): void {
+  detect(msg: string, grace = 0): void {
     if (this.state !== 'play' || this.player.invulnT > 0) return;
+    // 한 프레임에 여럿에 닿았으면 덜 봐주는 쪽을 따른다.
+    this.arrestGrace = this.arrestMsg ? Math.min(this.arrestGrace, grace) : grace;
     this.arrestMsg = msg;
   }
 
@@ -359,7 +364,7 @@ class Game implements Ctx {
     if (this.state !== 'play') return;
     // 시야나 빛에 닿은 시간을 잰다. 한 프레임이라도 벗어나면 처음부터 다시 잰다.
     this.seenT = this.arrestMsg ? this.seenT + dt : 0;
-    if (this.arrestMsg && this.seenT >= DETECT_GRACE) {
+    if (this.arrestMsg && this.seenT >= this.arrestGrace) {
       this.seenT = 0;
       this.arrest(this.arrestMsg);
     }

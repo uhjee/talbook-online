@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF, WARN } from './config';
+import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF, WARN, WATCH_GRACE } from './config';
 import {
   box, makeBear, makeBoar, makeBubble, makeCat, makeDeer, makeGiantHead, makeGiraffe, makeLimo, makeMascot, makePerson, makeSign,
   makeTiger, mat,
@@ -15,8 +15,8 @@ export interface Ctx {
   time: number;
   /** 이번 프레임에 플레이어가 행진 대열 속에 있는지 */
   inCrowd: boolean;
-  /** 발각을 알린다. 게이지 없이 곧바로 체크포인트로 돌려보낸다 */
-  detect(msg: string): void;
+  /** 시야나 빛에 닿았음을 알린다. grace(초) 넘게 계속 닿아 있으면 체크포인트로 돌려보낸다. grace가 없으면 닿는 즉시다 */
+  detect(msg: string, grace?: number): void;
   /** 탈북 실패로 판을 끝낸다 */
   kill(reason: string): void;
   toast(msg: string, sec?: number): void;
@@ -658,7 +658,7 @@ export class Watcher implements Entity {
     if (dist > this.range || p.hiding || c.inCrowd || p.state === 'fall') return;
     let diff = Math.atan2(-rz, rx) - a;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    if (Math.abs(diff) < Watcher.HALF) c.detect('발각!');
+    if (Math.abs(diff) < Watcher.HALF) c.detect('발각!', WATCH_GRACE);
   }
 }
 

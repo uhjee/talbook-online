@@ -161,9 +161,9 @@ export async function runAudit(runs = 3) {
   // 시야나 빛에 닿아도 잠깐은 봐주므로, 닿은 순간이 아니라 실제로 붙잡힌 순간을 센다. 누구에게 걸렸는지는 닿을 때 기억해 둔다.
   let seer = null;
   const detect = g.detect.bind(g);
-  g.detect = (msg) => {
+  g.detect = (msg, grace) => {
     seer = current;
-    detect(msg);
+    detect(msg, grace);
   };
   const arrest = g.arrest.bind(g);
   g.arrest = (msg) => {
