@@ -6,14 +6,15 @@ import {
 } from './entities';
 import { box, makeCutout, makeDeer, makePerson, makeSign, mat, PersonOpts } from './models';
 import { hasProps } from './props';
+import { Party } from './party';
 import { buildScenery } from './scenery';
 import { ONE_JUMP, Plan, Zone } from './spacing';
 
 export interface Decor {
   /** 생활관 문의 경첩 관절. y축으로 돌리면 문이 열린다 */
   door: THREE.Group;
-  /** 문을 열고 나오는 라면 먹던 병사 */
-  greeter: THREE.Group;
+  /** 문을 열고 나와 리용길을 축하해 주는 생활관 인원들 */
+  party: Party;
 }
 
 type Put = <T extends THREE.Object3D>(obj: T, x: number, d: number, ry?: number) => T;
@@ -453,7 +454,7 @@ function ssEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
  * 다시 배치해도 바뀌지 않는 배경 소품과 결승 생활관을 만든다.
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
- * @return {Decor} 결승 연출용 문과 병사
+ * @return {Decor} 결승 연출용 문과 생활관 인원
  */
 export function buildDecor(c: Ctx): Decor {
   const put: Put = (obj, x, d, ry = 0) => {
@@ -668,7 +669,7 @@ function dmzDecor(put: Put): void {
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Put} put 소품 배치 함수
- * @return {Decor} 결승 연출용 문 관절과 병사
+ * @return {Decor} 결승 연출용 문 관절과 생활관 인원
  */
 function ssDecor(c: Ctx, put: Put): Decor {
   const { from, to } = STAGES[3];
@@ -721,18 +722,6 @@ function ssDecor(c: Ctx, put: Put): Decor {
   door.add(box(1.6, 2.5, 0.1, 0x7a5230, 0.8, 1.25, 0), box(0.1, 0.1, 0.12, 0xd9c36a, 1.4, 1.2, 0.08));
   c.addProp(door, COURSE_LEN);
 
-  const greeter = makePerson({ ...ROK_SOLDIER, face: 'grin' });
-  greeter.rotation.y = Math.PI;
-  greeter.position.set(0, 0, z - 0.7);
-  // 라면 그릇
-  greeter.add(box(0.4, 0.2, 0.4, 0xc0392b, 0, 0.95, -0.4));
-  // 문 안쪽 양옆에서 함께 맞이하는 생활관 인원
-  for (const sx of [-0.58, 0.58]) {
-    const mate = makePerson({ ...ROK_SOLDIER, face: 'grin', noShadow: true });
-    mate.position.set(sx, 0, 0.95);
-    greeter.add(mate);
-  }
-  greeter.visible = false;
-  c.addProp(greeter, COURSE_LEN);
-  return { door, greeter };
+  const party = new Party((obj) => c.addProp(obj, COURSE_LEN), ROK_SOLDIER);
+  return { door, party };
 }

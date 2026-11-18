@@ -36,6 +36,8 @@ export class Player {
   /** 슬라이드를 한 횟수. 대사와 흙먼지를 낼 때 새로 했는지 알아보는 데 쓴다 */
   slides = 0;
   private runPhase = 0;
+  /** 오른손 위치. 결승에서 건네받은 웰컴 드링크 잔을 여기에 맞춘다 */
+  hand = new THREE.Object3D();
 
   /**
    * 리용길 모델을 만들고 초기 상태로 둔다.
@@ -48,6 +50,8 @@ export class Player {
     this.pivot.position.y = 0.9;
     this.pivot.add(this.model);
     this.group.add(this.pivot);
+    this.hand.position.set(0, -0.52, -0.04);
+    this.model.userData.parts.armR.add(this.hand);
   }
 
   /**
@@ -151,6 +155,33 @@ export class Player {
       this.vy = 0;
     }
     this.pose(dt);
+  }
+
+  /**
+   * 결승 축하 연출의 자세를 잡는다. 두 팔을 들고 폴짝거리다가, 잔을 건네는 병사 쪽으로 돌아서 손을 뻗고, 받은 뒤에는 화면 쪽으로 돌아 잔을 들어 올린다.
+   * @author heojeehaeng(claude)
+   * @param {number} time 박자에 쓰는 시간(초)
+   * @param {number} reach 잔을 향해 돌아서 손을 뻗은 정도(0~1)
+   * @param {number} cheers 잔을 받아 화면 쪽으로 돌아 들어 올린 정도(0~1)
+   * @param {number} toward 잔을 건네는 병사를 바라보는 각도(rad)
+   */
+  celebrate(time: number, reach: number, cheers: number, toward: number): void {
+    const p = this.pivot;
+    // 화면(카메라)을 바라보는 각도. 병사 쪽으로 돈 방향 그대로 더 돌아선다.
+    const camera = -2.95;
+    const yaw = toward * reach + (camera - toward) * cheers;
+    const wave = Math.sin(time * 9) * 0.25;
+    this.group.visible = true;
+    p.rotation.set(0, yaw, 0);
+    // 손을 뻗어 잔을 받는 동안에는 뛰지 않는다.
+    p.position.y = 0.9 + Math.abs(Math.sin(time * 8)) * 0.09 * (1 - reach + cheers);
+    swingPerson(this.model, 0, 0);
+    const { armL, armR } = this.model.userData.parts;
+    armL.rotation.set(2.75 + wave, 0, -0.3);
+    // 오른팔: 만세 → 앞으로 뻗어 받기 → 잔 들어 올리기
+    const up = 2.75 - wave;
+    const rx = up + (1.35 - up) * reach + (2.25 + wave * 0.3 - 1.35) * cheers;
+    armR.rotation.set(rx, 0, 0.3 * (1 - reach) + 0.2 * cheers);
   }
 
   private updateRun(dt: number, input: Input): void {

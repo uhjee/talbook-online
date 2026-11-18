@@ -10,12 +10,27 @@ interface Puff {
   grow: number;
 }
 
-/** 달릴 때 발밑에서 이는 먼지와 넘어질 때 튀는 흙먼지를 그린다 */
+interface Bit {
+  mesh: THREE.Mesh;
+  life: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  spin: number;
+}
+
+/** 색종이 색: 주홍, 노랑, 크림, 민트, 하늘 */
+const CONFETTI = [0xf0523a, 0xffd23f, 0xfff7e6, 0x6fbf9a, 0x7db9e4];
+
+/** 달릴 때 발밑에서 이는 먼지와 넘어질 때 튀는 흙먼지, 결승의 폭죽 색종이를 그린다 */
 export class Fx {
   private pool: Puff[] = [];
   private next = 0;
   private timer = 0;
   private sprayT = 0;
+  private bits: Bit[] = [];
+  private nextBit = 0;
+  private scene: THREE.Scene;
 
   /**
    * 먼지 알갱이를 미리 만들어 둔다. 달리는 동안 새로 만들지 않고 돌려 쓴다.
@@ -24,6 +39,7 @@ export class Fx {
    * @param {number} count 미리 만들 알갱이 수
    */
   constructor(scene: THREE.Scene, count = 64) {
+    this.scene = scene;
     const geo = new THREE.SphereGeometry(1, 7, 5);
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
@@ -103,11 +119,68 @@ export class Fx {
   }
 
   /**
-   * 떠 있는 먼지를 움직이고 서서히 지운다.
+   * 폭죽 색종이를 터뜨린다. 위로 솟았다가 팔랑거리며 천천히 떨어진다.
+   * @author heojeehaeng(claude)
+   * @param {number} x 터지는 자리 x
+   * @param {number} y 터지는 자리 높이
+   * @param {number} z 터지는 자리 z
+   * @param {number} count 색종이 수
+   * @param {number} vx 쏠려 날아가는 방향의 x 속도(m/s)
+   * @param {number} vz 쏠려 날아가는 방향의 z 속도(m/s)
+   */
+  confetti(x: number, y: number, z: number, count: number, vx = 0, vz = 0): void {
+    // 결승에서만 쓰이므로 처음 터뜨릴 때 만든다.
+    if (!this.bits.length) {
+      const geo = new THREE.BoxGeometry(0.1, 0.012, 0.14);
+      const mats = CONFETTI.map((color) => new THREE.MeshBasicMaterial({ color }));
+      for (let i = 0; i < 160; i++) {
+        const mesh = new THREE.Mesh(geo, mats[i % mats.length]);
+        mesh.visible = false;
+        this.scene.add(mesh);
+        this.bits.push({ mesh, life: 0, vx: 0, vy: 0, vz: 0, spin: 0 });
+      }
+    }
+    for (let i = 0; i < count; i++) {
+      const b = this.bits[this.nextBit];
+      this.nextBit = (this.nextBit + 1) % this.bits.length;
+      b.mesh.position.set(x, y, z);
+      b.mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+      b.mesh.scale.setScalar(1);
+      b.mesh.visible = true;
+      b.life = 2.6 + Math.random() * 1.2;
+      b.vx = vx * (0.4 + Math.random()) + (Math.random() - 0.5) * 3.2;
+      b.vy = 4.2 + Math.random() * 3.6;
+      b.vz = vz * (0.4 + Math.random()) + (Math.random() - 0.5) * 3.2;
+      b.spin = 4 + Math.random() * 8;
+    }
+  }
+
+  /**
+   * 떠 있는 먼지를 움직이고 서서히 지운다. 색종이는 떨어뜨린다.
    * @author heojeehaeng(claude)
    * @param {number} dt 프레임 시간(초)
    */
   update(dt: number): void {
+    for (const b of this.bits) {
+      if (b.life <= 0) continue;
+      b.life -= dt;
+      if (b.life <= 0 || b.mesh.position.y < 0.02) {
+        b.life = 0;
+        b.mesh.visible = false;
+        continue;
+      }
+      // 종이라서 옆으로는 금방 느려지고, 떨어지는 속도도 일정 이상 빨라지지 않는다.
+      b.vx *= 1 - Math.min(1, dt * 2.2);
+      b.vz *= 1 - Math.min(1, dt * 2.2);
+      b.vy = Math.max(-1.5, b.vy - 10 * dt);
+      b.mesh.position.x += b.vx * dt;
+      b.mesh.position.y += b.vy * dt;
+      b.mesh.position.z += b.vz * dt;
+      b.mesh.rotation.x += b.spin * dt;
+      b.mesh.rotation.z += b.spin * 0.6 * dt;
+      // 사라지기 직전에는 작아진다.
+      if (b.life < 0.4) b.mesh.scale.setScalar(b.life / 0.4);
+    }
     for (const p of this.pool) {
       if (p.life <= 0) continue;
       p.life -= dt;

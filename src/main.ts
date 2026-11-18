@@ -5,6 +5,7 @@ import { Fx } from './fx';
 import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
 import { Player } from './player';
+import { PARTY_FROM } from './party';
 import { Outline } from './post';
 import { loadProps } from './props';
 import { Hud, pickTitle, RunResult, saveRecord, shareCard, showFail, showRanking, showResult, validateNick } from './ui';
@@ -66,6 +67,8 @@ class Game implements Ctx {
   private slideSaid = false;
   /** 슬라이드 연출의 세기(0~1). 카메라가 낮아지는 정도를 부드럽게 잇는다 */
   private slideK = 0;
+  /** 결승 축하 장면으로 카메라가 넓게 물러난 정도(0~1) */
+  private partyK = 0;
   private outline: Outline | null = null;
 
   player = new Player();
@@ -303,7 +306,8 @@ class Game implements Ctx {
     this.last = now;
     this.time += dt;
     if (this.state === 'play') this.updatePlay(dt);
-    else if (this.state === 'knock') this.updateKnock(dt);
+    // 결과 화면이 뜬 뒤에도 뒤에서는 축하가 이어진다.
+    else if (this.state === 'knock' || this.state === 'result') this.updateKnock(dt);
     this.render(dt);
     requestAnimationFrame(() => this.loop());
   }
@@ -405,19 +409,30 @@ class Game implements Ctx {
       [0.3, () => this.toast('똑')],
       [0.8, () => this.toast('똑, 똑')],
       [1.3, () => this.toast('똑, 똑, 똑')],
-      [2.2, () => {
-        this.decor.greeter.visible = true;
-        this.decor.greeter.position.z = -COURSE_LEN + 0.7;
-        this.toast('"이라시야마쎼이!!!!!!!!"', 1.7);
-      }],
-      [4.0, () => this.toast('간부: "CCTV로 발견한 걸로 하자"', 2)],
-      [6.0, () => this.finish()],
+      [PARTY_FROM, () => this.toast('"이라시야마쎼이!!!!!!!!"', 1.5)],
+      [6.8, () => this.finish()],
     ];
     while (this.knockStep < steps.length && this.knockT >= steps[this.knockStep][0]) steps[this.knockStep++][1]();
     if (this.knockT > 2.0) {
       const door = this.decor.door;
       door.rotation.y += (-1.5 - door.rotation.y) * Math.min(1, dt * 6);
     }
+    // 문이 열리면 생활관 인원들이 밖으로 나와 축하해 준다.
+    this.decor.party.update(dt, this.knockT, this);
+  }
+
+  /**
+   * 결승의 폭죽 색종이를 터뜨린다.
+   * @author heojeehaeng(claude)
+   * @param {number} x 터지는 자리 x
+   * @param {number} y 터지는 자리 높이
+   * @param {number} z 터지는 자리 z
+   * @param {number} count 색종이 수
+   * @param {number} vx 쏠려 날아가는 방향의 x 속도(m/s)
+   * @param {number} vz 쏠려 날아가는 방향의 z 속도(m/s)
+   */
+  confetti(x: number, y: number, z: number, count: number, vx: number, vz: number): void {
+    this.fx.confetti(x, y, z, count, vx, vz);
   }
 
   /**
@@ -475,13 +490,16 @@ class Game implements Ctx {
     const sx = (Math.random() - 0.5) * this.shakeT;
     const sy = (Math.random() - 0.5) * this.shakeT;
     const close = this.state === 'knock' || this.state === 'result';
+    // 문이 열리고 사람들이 나오기 시작하면 모두가 화면에 들어오도록 카메라를 뒤로 물리고 가운데로 옮긴다.
+    this.partyK += ((close && this.knockT > PARTY_FROM - 0.2 ? 1 : 0) - this.partyK) * Math.min(1, dt * 3);
+    const wide = this.partyK;
     // 결승 연출에서는 문을 여는 병사가 리용길에 가리지 않도록 카메라를 옆으로 옮긴다.
-    const cx = close ? 1.7 : p.x * 0.55;
-    const back = close ? 4.2 : 7.2;
+    const cx = close ? 1.7 - wide * 0.7 : p.x * 0.55;
+    const back = close ? 4.2 + wide * 1.5 : 7.2;
     // 슬라이드하는 동안에는 카메라가 바닥 가까이 내려와 바짝 따라붙어, 땅을 스치는 속도감을 준다.
     const k = close ? 0 : this.slideK;
-    this.camera.position.set(cx + sx, (close ? 2.6 : 3.8 - k * 0.8) + sy, -p.d + back - k * 1.2);
-    this.camera.lookAt(close ? 0.3 : cx, close ? 1.4 : 1.0 - k * 0.2, -p.d - (close ? 7 : 10));
+    this.camera.position.set(cx + sx, (close ? 2.6 + wide * 0.2 : 3.8 - k * 0.8) + sy, -p.d + back - k * 1.2);
+    this.camera.lookAt(close ? 0.3 + wide * 0.2 : cx, close ? 1.4 - wide * 0.1 : 1.0 - k * 0.2, -p.d - (close ? 7 : 10));
     // 부스터를 쓰는 동안에는 시야각을 크게, 슬라이드하는 동안에는 조금 넓혀 속도감을 준다.
     const wantFov = (window.innerWidth < window.innerHeight ? 80 : 62) + (p.boostT > 0 ? 16 : k * 6);
     if (Math.abs(wantFov - this.fov) > 0.1) {
