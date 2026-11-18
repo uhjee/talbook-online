@@ -135,7 +135,8 @@ function dmzScenery(s: Scatter): void {
   const rnd = rng(13);
   const { from, to } = STAGES[2];
   const len = to - from;
-  const green = [0xffffff, 0xe6f0d6, 0xd2e6c4, 0xf4f0d0];
+  // 새벽 안개 톤에 맞춰 숲의 초록을 조금 차갑게 누른다.
+  const green = [0xdde6e4, 0xcbdad2, 0xc0d2c8, 0xd6dccf];
   const pines = ['nature/tree_pineDefaultA', 'nature/tree_pineDefaultB', 'nature/tree_pineTallA', 'nature/tree_pineRoundC'];
   for (let i = 0; i < 460; i++) {
     const d = from + 12 + rnd() * (len - 16);
@@ -167,7 +168,7 @@ function dmzScenery(s: Scatter): void {
   // 먼 능선: 납작한 바위를 크게 키워 숲 너머의 산처럼 보이게 한다.
   for (const side of [-1, 1]) {
     for (let d = from; d < to; d += 34 + rnd() * 18) {
-      s.put('nature/rock_largeA', side * (88 + rnd() * 16), d, { w: 44 + rnd() * 18, ry: rnd() * TAU, tint: 0xb4d49a });
+      s.put('nature/rock_largeA', side * (88 + rnd() * 16), d, { w: 44 + rnd() * 18, ry: rnd() * TAU, tint: 0xa7bfae });
     }
   }
   // 국경 철책: 길 위의 개구멍 장애물에서 양옆으로 이어진다.

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF } from './config';
+import { FALL_HEAVY, FALL_LIGHT, ROAD_HALF, WARN } from './config';
 import {
   box, makeBear, makeBoar, makeBubble, makeCat, makeDeer, makeGiantHead, makeGiraffe, makeLimo, makeMascot, makePerson, makeSign,
   makeTiger, mat,
@@ -107,14 +107,14 @@ export class Barrier implements Entity {
    * @param {number} w 장애물 폭 또는 구멍 폭(m)
    * @param {number} color 색상
    */
-  constructor(c: Ctx, public d: number, private kind: 'low' | 'high' | 'gap', private x = 0, private w = 8.6, color = 0x6b4a2b) {
+  constructor(c: Ctx, public d: number, private kind: 'low' | 'high' | 'gap', private x = 0, private w = 8.6, color = 0xd0ab80) {
     const g = new THREE.Group();
     if (kind === 'low') g.add(box(w, 0.5, 0.45, color, x, 0.25, 0));
     else if (kind === 'high') {
       g.add(box(w, 0.4, 0.4, color, x, 1.5, 0));
       g.add(box(0.3, 1.7, 0.3, color, x - w / 2 + 0.15, 0.85, 0), box(0.3, 1.7, 0.3, color, x + w / 2 - 0.15, 0.85, 0));
     } else {
-      const fence = new THREE.MeshLambertMaterial({ color: 0xaab4bc, transparent: true, opacity: 0.6 });
+      const fence = new THREE.MeshLambertMaterial({ color: 0xd0d7dc, transparent: true, opacity: 0.6 });
       for (const [a, b] of [[-9, x - w / 2], [x + w / 2, 9]]) {
         const panel = new THREE.Mesh(new THREE.BoxGeometry(b - a, 2.2, 0.08), fence);
         panel.position.set((a + b) / 2, 1.1, 0);
@@ -173,7 +173,7 @@ export class Cart implements Entity {
    */
   constructor(c: Ctx, public d: number, private x: number) {
     this.d0 = d;
-    this.g.add(box(1.3, 0.7, 1.7, 0x4d5358, 0, 0.6, 0), box(1.5, 0.1, 1.9, 0x33383c, 0, 0.98, 0));
+    this.g.add(box(1.3, 0.7, 1.7, 0x8793a0, 0, 0.6, 0), box(1.5, 0.1, 1.9, 0x5c6670, 0, 0.98, 0));
     for (const wx of [-0.55, 0.55]) for (const wz of [-0.6, 0.6]) this.g.add(box(0.12, 0.34, 0.34, 0x1e1e1e, wx, 0.17, wz));
     const potato = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), mat(0xc9a66b));
     potato.scale.set(1.3, 0.8, 1);
@@ -220,10 +220,10 @@ export class Stalactite implements Entity {
    * @param {number} x 떨어질 x
    */
   constructor(c: Ctx, public d: number, private x: number) {
-    this.rock = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.8, 7), mat(0x8a7f72));
+    this.rock = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.8, 7), mat(0xc2b6aa));
     this.rock.rotation.x = Math.PI;
     this.rock.position.set(x, this.y, -d);
-    this.mark = new THREE.Mesh(new THREE.CircleGeometry(0.8, 16), basic(0xff3b30, 0.45));
+    this.mark = new THREE.Mesh(new THREE.CircleGeometry(0.8, 16), basic(WARN, 0.45));
     this.mark.rotation.x = -Math.PI / 2;
     this.mark.position.set(x, 0.04, -d);
     this.mark.visible = false;
@@ -555,7 +555,7 @@ export class Crowd implements Entity {
     this.d = (d0 + d1) / 2;
     for (let d = d0 + 1; d < d1; d += 3.2) {
       for (const ox of [-1.5, 0, 1.5]) {
-        const p = makePerson({ shirt: 0x6b7a4a, pants: 0x5d6b40, hat: 0x6b7a4a, back: true });
+        const p = makePerson({ shirt: 0xd9d2b4, pants: 0xb9b294, hat: 0xd9d2b4, back: true });
         p.position.set(x + ox, 0.08, -d);
         this.people.push(p);
         c.add(p, d);
@@ -604,12 +604,12 @@ export class Watcher implements Entity {
     this.wx = side * 5.2;
     // 시야 기본 방향은 길 안쪽이면서 달려오는 플레이어 쪽(+z)이다.
     this.base = side < 0 ? -0.6 : Math.PI + 0.6;
-    const cone = new THREE.Mesh(new THREE.CircleGeometry(range, 20, -Watcher.HALF, Watcher.HALF * 2), basic(0xff3b30, 0.34));
+    const cone = new THREE.Mesh(new THREE.CircleGeometry(range, 20, -Watcher.HALF, Watcher.HALF * 2), basic(WARN, 0.34));
     cone.rotation.x = -Math.PI / 2;
     cone.position.y = 0.05;
     this.pivot.add(cone);
     this.pivot.position.set(this.wx, 0, -d);
-    this.man = makePerson({ shirt: 0x3d4a3a, pants: 0x333f31, hat: 0x8b1e1e, hatKind: 'officer', boots: true, face: 'angry', armband: 0xc0261c });
+    this.man = makePerson({ shirt: 0x3b3550, pants: 0x2a2639, hat: 0xa82a44, hatKind: 'officer', boots: true, face: 'angry', armband: 0xc0261c });
     this.man.position.set(this.wx, 0, -d);
     c.add(this.pivot, d);
     c.add(this.man, d);
@@ -688,8 +688,8 @@ export class Shooter implements Entity {
     this.man = makePerson(look);
     this.man.position.set(this.sx, 0, -d);
     this.man.add(box(0.08, 0.08, 1.0, 0x222222, 0.3, 1.05, -0.5));
-    this.line = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 1), basic(0xff2d2d, 0.85));
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 20), basic(0xff2d2d, 0.85));
+    this.line = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 1), basic(WARN, 0.85));
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 20), basic(WARN, 0.85));
     this.ring.rotation.x = -Math.PI / 2;
     this.line.visible = this.ring.visible = false;
     c.add(this.man, d);
@@ -781,15 +781,15 @@ export class Mine implements Entity {
    * @param {boolean} flag true면 붉은 깃발로 표시한다
    */
   constructor(c: Ctx, public d: number, private x: number, flag: boolean) {
-    const mound = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), mat(0x4a3b22));
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), mat(0x3a2f27));
     mound.scale.y = 0.35;
     this.g.add(mound, box(0.2, 0.08, 0.2, 0x222222, 0, 0.18, 0));
     // 흙길과 색이 비슷해 빠르게 달릴 때 보이지 않으므로, 둘레에 파헤친 흙 자국을 어둡게 깐다.
-    const scar = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.85, 14), new THREE.MeshBasicMaterial({ color: 0x2e2416 }));
+    const scar = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.85, 14), new THREE.MeshBasicMaterial({ color: 0x2a211b }));
     scar.rotation.x = -Math.PI / 2;
     scar.position.y = 0.03;
     this.g.add(scar);
-    if (flag) this.g.add(box(0.04, 0.9, 0.04, 0xdddddd, 0.3, 0.45, 0), box(0.35, 0.22, 0.03, 0xe02020, 0.48, 0.78, 0));
+    if (flag) this.g.add(box(0.04, 0.9, 0.04, 0xdddddd, 0.3, 0.45, 0), box(0.35, 0.22, 0.03, WARN, 0.48, 0.78, 0));
     this.g.position.set(x, 0, -d);
     this.boom = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), basic(0xffb020, 0.8));
     this.boom.position.set(x, 0.4, -d);
@@ -1256,13 +1256,13 @@ export class Searchlight implements Entity {
    * @param {number} speed 훑는 속도 배율
    */
   constructor(c: Ctx, public d: number, side: number, private phase: number, private speed: number) {
-    this.spot = new THREE.Mesh(new THREE.CircleGeometry(Searchlight.R, 24), basic(0xfff3a0, 0.55));
+    this.spot = new THREE.Mesh(new THREE.CircleGeometry(Searchlight.R, 24), basic(0xf2e6a6, 0.55));
     this.spot.rotation.x = -Math.PI / 2;
     this.spot.position.y = 0.06;
     this.tower = new THREE.Vector3(side * 6.5, 5, -d);
     c.add(box(0.5, 5, 0.5, 0x4a4f55, this.tower.x, 2.5, -d), d);
     c.add(box(1.4, 1.0, 1.4, 0x3a4047, this.tower.x, 5.4, -d), d);
-    this.beam = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1), basic(0xfff3a0, 0.25));
+    this.beam = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1), basic(0xf2e6a6, 0.25));
     // 플레이어가 가까이 와서 갱신이 시작되기 전에는 원점에 보이지 않게 숨긴다.
     this.spot.visible = this.beam.visible = false;
     c.add(this.spot, d, true);
@@ -1481,7 +1481,7 @@ export class Giant implements Entity {
       this.pos[i].set(i ? 2 : -2, d + i * 7);
       c.add(foot, d, true);
     }
-    this.mark = new THREE.Mesh(new THREE.CircleGeometry(Giant.R, 24), basic(0xff2d2d, 0.5));
+    this.mark = new THREE.Mesh(new THREE.CircleGeometry(Giant.R, 24), basic(WARN, 0.5));
     this.mark.rotation.x = -Math.PI / 2;
     this.mark.visible = false;
     c.add(this.body, d, true);

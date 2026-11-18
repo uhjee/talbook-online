@@ -45,13 +45,22 @@ export interface Stage {
   fogNear: number;
   fogFar: number;
   light: number;
+  /** 구간의 메인 색. 화면 전체에 이 색을 얇게 씌워 구간마다 톤을 맞춘다 */
+  tint: number;
+  /** 메인 색을 씌우는 세기(0~1) */
+  grade: number;
 }
 
+/** 붉은 시야, 조준선, 낙하 예고, 지뢰 깃발, 거인의 발자리에 함께 쓰는 경고색. 어느 구간에서나 같은 색으로 보이게 한다 */
+export const WARN = 0xf0523a;
+
+// 구간마다 메인 색(tint)에서 밝기와 채도만 바꿔 하늘, 안개, 땅, 길 색을 정했다. 안개를 가깝게 깔아 먼 곳이 뿌옇게 번지는 아련한 느낌을 낸다.
 export const STAGES: Stage[] = [
-  { id: 'mine', name: '아오지 탄광', from: 0, to: 750, road: 0x5a4636, ground: 0x2b2018, sky: 0x0d0a08, skyTop: 0x050403, fogNear: 14, fogFar: 95, light: 0.75 },
-  { id: 'city', name: '북한 시내', from: 750, to: 1950, road: 0x8f8f8f, ground: 0xa9a59c, sky: 0xd4d9df, skyTop: 0x7f99bd, fogNear: 50, fogFar: 200, light: 1.0 },
-  { id: 'dmz', name: '국경과 DMZ', from: 1950, to: 3600, road: 0x7a6a44, ground: 0x4f7d3a, sky: 0xbfe4f5, skyTop: 0x3f8fe0, fogNear: 60, fogFar: 210, light: 1.0 },
-  { id: 'ss', name: 'SS사단', from: 3600, to: 4500, road: 0x6b7280, ground: 0x3d4f45, sky: 0x4a5f8f, skyTop: 0x0b1433, fogNear: 40, fogFar: 160, light: 0.8 },
+  { id: 'mine', name: '아오지 탄광', from: 0, to: 750, road: 0x7a685d, ground: 0x54463e, sky: 0x3d322c, skyTop: 0x1c1715, fogNear: 12, fogFar: 92, light: 0.9, tint: 0x9a887e, grade: 0.22 },
+  { id: 'city', name: '북한 시내', from: 750, to: 1950, road: 0xa99cab, ground: 0xd0bfcd, sky: 0xf4e2f1, skyTop: 0xb4a2d8, fogNear: 34, fogFar: 175, light: 0.96, tint: 0xe6b4e5, grade: 0.16 },
+  // 새벽에 달리는 느낌을 내려고 안개를 가장 가깝게 깔고 빛을 조금 낮춘다.
+  { id: 'dmz', name: '국경과 DMZ', from: 1950, to: 3600, road: 0x7e796b, ground: 0x5f7567, sky: 0xb0b7c6, skyTop: 0x4f5870, fogNear: 26, fogFar: 150, light: 0.92, tint: 0x6c7286, grade: 0.2 },
+  { id: 'ss', name: 'SS사단', from: 3600, to: 4500, road: 0x808b82, ground: 0x56664f, sky: 0xb9c6b6, skyTop: 0x2d3a36, fogNear: 30, fogFar: 150, light: 0.88, tint: 0x8b9f8c, grade: 0.2 },
 ];
 
 /** 코스 전체 길이(m) */

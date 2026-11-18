@@ -20,12 +20,12 @@ type Put = <T extends THREE.Object3D>(obj: T, x: number, d: number, ry?: number)
 /** 패에서 한 장을 뽑는 함수. 점수 함수를 주면 점수가 가장 낮은 종류들 가운데에서 뽑는다 */
 type Pick<T extends string> = (score?: (kind: T) => number) => T;
 
-const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xd9a441, hatKind: 'helmet', face: 'calm' };
+const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xe3b23c, hatKind: 'helmet', face: 'calm' };
 /** 탄광을 지키는 간수 */
-const GUARD: PersonOpts = { shirt: 0x3a3f4a, pants: 0x2a2d35, hat: 0x2a2d35, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
-const PARTY: PersonOpts = { shirt: 0x34404f, pants: 0x2b3440, hat: 0x34404f, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
-const PARTY_GUN: PersonOpts = { shirt: 0x6a3a2c, pants: 0x2b3440, hat: 0x6a3a2c, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
-const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
+const GUARD: PersonOpts = { shirt: 0x2c303c, pants: 0x23262f, hat: 0x23262f, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
+const PARTY: PersonOpts = { shirt: 0x342f47, pants: 0x2a2639, hat: 0x342f47, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
+const PARTY_GUN: PersonOpts = { shirt: 0x6a3040, pants: 0x2a2639, hat: 0x6a3040, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
+const NK_SOLDIER: PersonOpts = { shirt: 0xc9b068, pants: 0xa8924f, hat: 0xc9b068, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
 /** 한국군 병사. 화강암 디지털 무늬 전투복과 전투모를 입는다. 색 값은 무늬가 안 쓰이는 허리띠와 모자 테에만 쓰인다 */
 export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
@@ -312,11 +312,11 @@ function cityEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void
       return 0;
     }
     if (kind === 'low') {
-      es.push(new Barrier(c, d, 'low', x < 0 ? -1.8 : 1.8, 5, 0xcc3333));
+      es.push(new Barrier(c, d, 'low', x < 0 ? -1.8 : 1.8, 5, 0xc22f4e));
       return 0;
     }
     if (kind === 'high') {
-      es.push(new Barrier(c, d, 'high', 0, 8.6, 0xb22222));
+      es.push(new Barrier(c, d, 'high', 0, 8.6, 0x8f2440));
       return 0;
     }
     if (kind === 'crowd') {
@@ -377,7 +377,7 @@ function dmzEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void 
       es.push(makeDeerEnemy(c, d + 40, (rnd() * 2 - 1) * 3.4));
       // 뒤쪽에서는 고라니가 두 마리씩 달려온다. 첫 마리를 피한 뒤 다시 움직일 틈이 있도록 간격을 벌린다.
       if (k > 0.45) es.push(makeDeerEnemy(c, d + 40 + PAIR_GAP, (rnd() * 2 - 1) * 3.4));
-    } else es.push(new Barrier(c, d, 'low', rnd() < 0.5 ? -1.8 : 1.8, 4.6, 0x5b3a1e));
+    } else es.push(new Barrier(c, d, 'low', rnd() < 0.5 ? -1.8 : 1.8, 4.6, 0xa66a3a));
     return 0;
   });
   along(from + 90, to - 15, 12, 7, rnd, (d, k) => {
@@ -469,7 +469,7 @@ export function buildDecor(c: Ctx): Decor {
   for (const cp of CHECKPOINTS) {
     if (cp === 0) continue;
     const flag = new THREE.Group();
-    flag.add(box(0.08, 2.6, 0.08, 0xdddddd, 0, 1.3, 0), box(0.9, 0.5, 0.04, 0x2ecc71, 0.48, 2.3, 0));
+    flag.add(box(0.08, 2.6, 0.08, 0xdddddd, 0, 1.3, 0), box(0.9, 0.5, 0.04, 0x6fbf9a, 0.48, 2.3, 0));
     put(flag, -4.4, cp);
   }
   buildScenery(c);

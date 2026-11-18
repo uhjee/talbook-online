@@ -487,8 +487,10 @@ class Game implements Ctx {
     const sz = -Math.round(p.d) - 16;
     this.sun.target.position.set(0, 0, sz);
     this.sun.position.set(12, 22, sz + 16);
-    if (this.outline) this.outline.render(this.scene, this.camera);
-    else this.renderer.render(this.scene, this.camera);
+    if (this.outline) {
+      this.outline.setGrade(env.tint, env.grade);
+      this.outline.render(this.scene, this.camera);
+    } else this.renderer.render(this.scene, this.camera);
 
     this.hud.rush(this.state === 'play' && p.boosting);
     this.hud.skid(sliding && !p.boosting);

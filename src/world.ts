@@ -81,6 +81,9 @@ export interface Env {
   fogNear: number;
   fogFar: number;
   light: number;
+  /** 화면 전체에 씌울 구간의 메인 색과 세기 */
+  tint: THREE.Color;
+  grade: number;
 }
 
 export class World {
@@ -89,7 +92,7 @@ export class World {
   /** 적과 장애물은 다시 배치할 때 통째로 지울 수 있도록 배경 소품과 따로 묶는다 */
   private entChunks = new Map<number, THREE.Group>();
   private entAlways = new THREE.Group();
-  private env: Env = { sky: new THREE.Color(), top: new THREE.Color(), fogNear: 10, fogFar: 100, light: 1 };
+  private env: Env = { sky: new THREE.Color(), top: new THREE.Color(), fogNear: 10, fogFar: 100, light: 1, tint: new THREE.Color(), grade: 0 };
   private tmp = new THREE.Color();
 
   /**
@@ -126,13 +129,13 @@ export class World {
    */
   private buildMine(): void {
     const len = STAGES[0].to;
-    for (const sx of [-1, 1]) this.scene.add(box(1, 5.4, len + 30, 0x241a13, sx * 5.3, 2.7, -len / 2 + 15));
-    this.scene.add(box(11.6, 0.6, len + 30, 0x1c140e, 0, 5.4, -len / 2 + 15));
-    const lampMat = new THREE.MeshBasicMaterial({ color: 0xd8ff7a });
+    for (const sx of [-1, 1]) this.scene.add(box(1, 5.4, len + 30, 0x3a2f29, sx * 5.3, 2.7, -len / 2 + 15));
+    this.scene.add(box(11.6, 0.6, len + 30, 0x2a221e, 0, 5.4, -len / 2 + 15));
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xf0cf8a });
     for (let d = 6; d < len; d += 12.5) {
       const frame = new THREE.Group();
-      frame.add(box(0.35, 4.8, 0.35, 0x6b4a2b, -4.6, 2.4, 0), box(0.35, 4.8, 0.35, 0x6b4a2b, 4.6, 2.4, 0));
-      frame.add(box(9.6, 0.35, 0.35, 0x6b4a2b, 0, 4.8, 0));
+      frame.add(box(0.35, 4.8, 0.35, 0x7c6452, -4.6, 2.4, 0), box(0.35, 4.8, 0.35, 0x7c6452, 4.6, 2.4, 0));
+      frame.add(box(9.6, 0.35, 0.35, 0x7c6452, 0, 4.8, 0));
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), lampMat);
       lamp.position.set(d % 25 < 12.5 ? -3.2 : 3.2, 4.1, 0);
       frame.add(lamp, box(0.03, 0.5, 0.03, 0x111111, lamp.position.x, 4.45, 0));
@@ -245,6 +248,8 @@ export class World {
     e.fogNear = s.fogNear + (other.fogNear - s.fogNear) * k;
     e.fogFar = s.fogFar + (other.fogFar - s.fogFar) * k;
     e.light = s.light + (other.light - s.light) * k;
+    e.tint.setHex(s.tint).lerp(this.tmp.setHex(other.tint), k);
+    e.grade = s.grade + (other.grade - s.grade) * k;
     return e;
   }
 }
