@@ -230,6 +230,38 @@ export class Hud {
   }
 
   /**
+   * 함께 달리는 사람들의 위치를 진행 막대에 색 점으로 찍는다.
+   * @author heojeehaeng(claude)
+   * @param {Object[]} dots 사람별 진행도(at, 0~1)와 색(color)
+   */
+  peers(dots: { at: number; color: string }[]): void {
+    const bar = $('progress');
+    const els = bar.querySelectorAll<HTMLElement>('b');
+    dots.forEach((dot, i) => {
+      let el = els[i];
+      if (!el) {
+        el = document.createElement('b');
+        bar.append(el);
+      }
+      el.style.left = `${Math.min(100, Math.max(0, dot.at * 100))}%`;
+      el.style.background = dot.color;
+    });
+    for (let i = dots.length; i < els.length; i++) els[i].remove();
+  }
+
+  /**
+   * 함께 달리는 사람들 사이에서의 지금 등수를 보여 준다. 혼자 달릴 때는 숨긴다.
+   * @author heojeehaeng(claude)
+   * @param {number} place 등수. 0이면 숨긴다
+   */
+  place(place: number): void {
+    const el = $('place');
+    el.classList.toggle('hidden', place < 1);
+    const text = `${place}위`;
+    if (el.textContent !== text) el.textContent = text;
+  }
+
+  /**
    * 화면 가운데에 짧은 문구를 띄운다. 알림은 붉은 띠의 구호로, 대사와 도움말은 빨리 읽히는 쪽지로 보여 준다.
    * @author heojeehaeng(claude)
    * @param {string} msg 문구
@@ -271,6 +303,99 @@ export function showResult(r: RunResult): void {
 export function showFail(reason: string): void {
   $('fail-reason').textContent = reason;
   $('fail').classList.remove('hidden');
+}
+
+export interface VersusRow {
+  nick: string;
+  /** 옷 색(CSS 색). 빈 문자열이면 색 표시를 비워 둔다 */
+  color: string;
+  /** true면 나 자신의 줄이다 */
+  me: boolean;
+  /** 이름 옆에 붙는 꼬리표(방장, 나) */
+  tag: string;
+  /** 오른쪽에 적는 상태나 기록 */
+  note: string;
+}
+
+/**
+ * 함께 달리는 사람들의 목록을 채운다. 방 화면의 참가자 목록과 결과 화면의 대결 순위가 같은 모양을 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {HTMLElement} list 채울 목록
+ * @param {VersusRow[]} rows 줄 내용
+ */
+function fillRows(list: HTMLElement, rows: VersusRow[]): void {
+  list.innerHTML = '';
+  for (const r of rows) {
+    const li = document.createElement('li');
+    li.classList.toggle('me', r.me);
+    const dot = document.createElement('i');
+    if (r.color) dot.style.background = r.color;
+    else dot.className = 'none';
+    const name = document.createElement('span');
+    name.textContent = r.nick;
+    if (r.tag) {
+      const tag = document.createElement('em');
+      tag.textContent = r.tag;
+      name.append(tag);
+    }
+    const note = document.createElement('span');
+    note.textContent = r.note;
+    li.append(dot, name, note);
+    list.append(li);
+  }
+}
+
+/**
+ * 멀티 플레이 화면을 보이거나 숨긴다.
+ * @author heojeehaeng(claude)
+ * @param {boolean} on 표시 여부
+ */
+export function showLobby(on: boolean): void {
+  $('lobby').classList.toggle('hidden', !on);
+}
+
+/**
+ * 멀티 플레이 화면을 방을 만들거나 찾는 모습으로 바꾼다.
+ * @author heojeehaeng(claude)
+ * @param {string} error 보여 줄 안내 문구. 없으면 비운다
+ * @param {boolean} busy true면 서버의 답을 기다리는 중이라 단추를 잠근다
+ */
+export function lobbyFind(error = '', busy = false): void {
+  $('lobby-find').classList.remove('hidden');
+  $('lobby-room').classList.add('hidden');
+  $('lobby-error').textContent = error;
+  for (const id of ['btn-room-new', 'btn-room-join']) ($(id) as HTMLButtonElement).disabled = busy;
+}
+
+/**
+ * 멀티 플레이 화면을 방 안의 모습으로 바꾸고 참가자 목록을 채운다.
+ * @author heojeehaeng(claude)
+ * @param {string} code 방 번호
+ * @param {VersusRow[]} rows 참가자 목록
+ * @param {boolean} isHost true면 내가 방장이라 출발 단추를 보여 준다
+ * @param {boolean} canStart true면 출발할 수 있다
+ * @param {string} status 목록 아래에 적는 안내 문구
+ */
+export function fillLobby(code: string, rows: VersusRow[], isHost: boolean, canStart: boolean, status: string): void {
+  $('lobby-find').classList.add('hidden');
+  $('lobby-room').classList.remove('hidden');
+  $('room-no').textContent = code;
+  fillRows($('room-list'), rows);
+  $('room-status').textContent = status;
+  const go = $('btn-room-go') as HTMLButtonElement;
+  go.classList.toggle('hidden', !isHost);
+  go.disabled = !canStart;
+}
+
+/**
+ * 결과 화면에 함께 달린 사람들의 순위를 채운다. 혼자 달린 판에는 비워서 숨긴다.
+ * @author heojeehaeng(claude)
+ * @param {VersusRow[]|null} rows 순위 목록. null이면 숨긴다
+ */
+export function fillVersus(rows: VersusRow[] | null): void {
+  const list = $('res-versus');
+  list.classList.toggle('hidden', !rows);
+  if (rows) fillRows(list, rows);
 }
 
 /** 랭킹 화면을 연 순번. 늦게 도착한 앞선 요청의 답이 화면을 덮어쓰지 않게 한다 */

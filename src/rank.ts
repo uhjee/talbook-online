@@ -1,7 +1,7 @@
 /** 랭킹 서버(Supabase)의 주소 */
 const API = 'https://wlkgwhxcqxazchnyooml.supabase.co/rest/v1';
 /** 브라우저에 넣어도 되는 공개 키. 테이블의 접근 규칙이 허용한 일(순위 보기, 기록 올리기)만 할 수 있다. 비밀 키는 절대 넣지 않는다 */
-const KEY = 'sb_publishable_YNu4yQlh8QdE4mz_tyJbPA_LX57EGVX';
+export const KEY = 'sb_publishable_YNu4yQlh8QdE4mz_tyJbPA_LX57EGVX';
 /** 서버가 이 시간(ms) 안에 답하지 않으면 포기하고 이 기기의 기록으로 넘어간다 */
 const TIMEOUT = 6000;
 

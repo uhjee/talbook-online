@@ -60,6 +60,7 @@
     <div id="hud" class="hidden">
       <div id="hud-top">
         <span id="stage"></span>
+        <span id="place" class="hidden"></span>
         <span id="timer">0:00.00</span>
       </div>
       <div id="progress">
@@ -141,7 +142,11 @@
         <div class="poster-form">
           <input id="nick" type="text" maxlength="8" placeholder="동무의 이름 (2~8자)" autocomplete="off" />
           <p id="nick-error" class="error"></p>
-          <button id="btn-start" class="primary">탈북 시작!</button>
+          <p id="invite-note" class="note hidden"></p>
+          <div class="row modes">
+            <button id="btn-start" class="primary">솔로 플레이</button>
+            <button id="btn-multi" class="primary navy">멀티 플레이</button>
+          </div>
           <button id="btn-rank">탈북 영웅 명예 게시판</button>
         </div>
       </div>
@@ -155,6 +160,7 @@
         <p id="res-time" class="big"></p>
         <p id="res-rank" class="rank"></p>
         <p id="res-stats" class="sub"></p>
+        <ol id="res-versus" class="versus hidden"></ol>
         <div class="cert-foot">
           <p>위 동무는 아오지 탄광에서 SS사단 생활관까지 쉬지 않고 달려 탈북에 성공하였기에 이를 표창함.</p>
           <span class="seal">탈북<br />성공</span>
@@ -175,6 +181,34 @@
         <p id="fail-reason" class="who"></p>
         <p class="crit-text">나는 발밑의 붉은 원을 살피지 않는 엄중한 과오를 범하였습니다. 다음에는 반드시 피해 달리겠습니다.</p>
         <button id="btn-fail-retry" class="primary">다시 하기</button>
+      </div>
+    </div>
+
+    <div id="lobby" class="screen hidden">
+      <div class="panel board">
+        <div class="board-head">
+          <p>동무들과 어깨 겯고</p>
+          <h2>멀티 플레이</h2>
+        </div>
+        <div id="lobby-find">
+          <button id="btn-room-new" class="primary">방 만들기</button>
+          <p class="or">또는 방 번호로 들어가기</p>
+          <div class="row join">
+            <input id="room-code" type="text" inputmode="numeric" maxlength="4" placeholder="방 번호 4자리" autocomplete="off" />
+            <button id="btn-room-join">들어가기</button>
+          </div>
+          <p id="lobby-error" class="error"></p>
+          <button id="btn-lobby-back">돌아가기</button>
+        </div>
+        <div id="lobby-room" class="hidden">
+          <p class="room-label">방 번호</p>
+          <p id="room-no" class="big"></p>
+          <button id="btn-room-link">초대 링크 복사</button>
+          <ol id="room-list" class="versus"></ol>
+          <p id="room-status" class="note"></p>
+          <button id="btn-room-go" class="primary">출발!</button>
+          <button id="btn-room-leave">방 나가기</button>
+        </div>
       </div>
     </div>
 

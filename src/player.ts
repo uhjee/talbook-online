@@ -44,14 +44,39 @@ export class Player {
    * @author heojeehaeng(claude)
    */
   constructor() {
-    this.model = makePerson({ shirt: 0x4f6a8f, pants: 0x3a4250, skin: HERO_SKIN, hat: 0x4f6a8f, pack: true, scarf: 0xe9e2cf, noShadow: true, wear: true });
-    // 넘어짐과 엎드리기를 몸 가운데 기준으로 돌리기 위해 관절을 허리 높이에 둔다.
-    this.model.position.y = -0.9;
+    this.model = Player.build(0x4f6a8f);
     this.pivot.position.y = 0.9;
     this.pivot.add(this.model);
     this.group.add(this.pivot);
     this.hand.position.set(0, -0.52, -0.04);
     this.model.userData.parts.armR.add(this.hand);
+  }
+
+  /**
+   * 지정한 옷 색의 리용길 모델을 만든다.
+   * @author heojeehaeng(claude)
+   * @param {number} color 윗옷과 모자의 색
+   * @return {THREE.Group} 리용길 모델
+   */
+  private static build(color: number): THREE.Group {
+    const model = makePerson({ shirt: color, pants: 0x3a4250, skin: HERO_SKIN, hat: color, pack: true, scarf: 0xe9e2cf, noShadow: true, wear: true });
+    // 넘어짐과 엎드리기를 몸 가운데 기준으로 돌리기 위해 관절을 허리 높이에 둔다.
+    model.position.y = -0.9;
+    return model;
+  }
+
+  /**
+   * 리용길의 옷 색을 바꾼다. 함께 달릴 때 사람마다 다른 색을 입어 서로 구분한다.
+   * @author heojeehaeng(claude)
+   * @param {number} color 윗옷과 모자의 색
+   */
+  dress(color: number): void {
+    this.pivot.remove(this.model);
+    this.model = Player.build(color);
+    this.pivot.add(this.model);
+    this.model.userData.parts.armR.add(this.hand);
+    // 새 모델에도 지금까지 당한 만큼의 옷차림과 그림자 설정을 다시 입힌다.
+    this.wear = -1;
   }
 
   /**

@@ -156,6 +156,25 @@ body {
   border-right: 0;
 }
 
+/* 함께 달리는 사람들: 진행 막대 위의 색 점과 지금 등수 */
+#progress b {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+#place {
+  padding: 0 12px;
+  border: var(--line) solid var(--ink);
+  background: var(--yellow);
+  box-shadow: 4px 4px 0 var(--ink);
+  font-family: var(--display);
+  font-size: 21px;
+}
+
 /* 알림: 붉은 띠에 노란 글씨로 쓴 구호. 대사(.line)와 도움말(.hint)은 빨리 읽히도록 크림색 쪽지에 Pretendard로 쓴다. */
 #toast {
   --sk: skewX(-6deg);
@@ -827,6 +846,104 @@ button:disabled {
 }
 .row button {
   flex: 1;
+}
+
+/* 시작 화면의 솔로·멀티 단추. 나란히 놓으므로 글자를 조금 줄인다. */
+.modes button.primary {
+  padding: 8px 2px;
+  font-size: clamp(18px, 5.6vw, 24px);
+  white-space: nowrap;
+}
+button.primary.navy {
+  background: var(--navy);
+  box-shadow: 5px 5px 0 var(--red);
+}
+button.primary.navy:active {
+  box-shadow: 2px 2px 0 var(--red);
+}
+
+/* 멀티 플레이 화면: 방을 만들거나 찾는 모습과 방 안의 모습 */
+#lobby {
+  background: rgba(12, 14, 22, 0.82);
+}
+#lobby .or {
+  margin: 20px 0 8px;
+  color: var(--mute);
+  font-size: 14px;
+  font-weight: 600;
+}
+.row.join input {
+  flex: 1.3;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.row.join button {
+  margin-top: 0;
+  white-space: nowrap;
+}
+.room-label {
+  margin: 4px 0 0;
+  color: var(--mute);
+  font-size: 14px;
+  font-weight: 700;
+}
+#room-no {
+  letter-spacing: 0.12em;
+  /* 자간만큼 오른쪽으로 밀리는 것을 되돌려 가운데에 맞춘다. */
+  margin-right: -0.12em;
+}
+#btn-room-link {
+  margin-top: 4px;
+  padding: 5px;
+  box-shadow: 3px 3px 0 var(--ink);
+  font-size: 17px;
+}
+/* 함께 달리는 사람들의 목록: 옷 색 점, 이름, 상태나 기록 */
+.versus {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.versus li {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 6px 12px 6px 10px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.versus li.me {
+  background: var(--yellow);
+}
+.versus li i {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+.versus li i.none {
+  border-style: dashed;
+}
+.versus li em {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  font-style: normal;
+  font-size: 12px;
+  vertical-align: 1px;
+}
+.versus li span:last-child {
+  color: var(--mute);
+  font-size: 14px;
+}
+#res-versus {
+  margin: 0 0 12px;
 }
 
 /* 완주 화면: 붉은 겹테두리를 두른 표창장 */
