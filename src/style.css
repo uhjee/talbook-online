@@ -711,30 +711,7 @@ h2.brush {
   font-weight: inherit;
 }
 .poster-form {
-  padding: 14px 20px 22px;
-}
-/* 달릴 길: 별로 이은 진군로 */
-.route {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 0 0 13px;
-  padding: 0;
-  list-style: none;
-  font-family: var(--display);
-  font-weight: 900;
-  font-size: 14px;
-}
-.route li + li::before {
-  content: '★';
-  margin: 0 6px;
-  color: var(--red);
-  font-family: var(--body);
-  font-size: 10px;
-  vertical-align: 2px;
-}
-.route li:last-child {
-  color: var(--red-deep);
+  padding: 18px 20px 22px;
 }
 .sub {
   margin: 6px 0 12px;
@@ -1087,12 +1064,6 @@ button:disabled {
 
 /* ---------- 좁은 화면 ---------- */
 @media (max-width: 420px) {
-  .route {
-    font-size: 13px;
-  }
-  .route li + li::before {
-    margin: 0 4px;
-  }
   h2.brush {
     font-size: 36px;
   }
