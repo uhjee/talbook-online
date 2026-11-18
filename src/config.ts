@@ -1,5 +1,9 @@
-/** 화면과 3D 속 글자에 함께 쓰는 글꼴. 웹 글꼴을 받지 못하면 기기의 기본 한글 글꼴로 넘어간다. style.css의 --font와 같아야 한다 */
+/** 대사와 도움말처럼 달리면서 빨리 읽어야 하는 글에 쓰는 글꼴. 웹 글꼴을 받지 못하면 기기의 기본 한글 글꼴로 넘어간다. style.css의 --font와 같아야 한다 */
 export const FONT = '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+/** 제목, 구호, 표지판에 쓰는 선전화풍 글꼴(검은고딕). 굵기가 하나뿐이고 영문이 없어, 없는 글자는 FONT로 나온다. style.css의 --display와 같아야 한다 */
+export const FONT_DISPLAY = `"Black Han Sans", ${FONT}`;
+/** 도장과 표창장 제목처럼 붓으로 쓴 글에 쓰는 글꼴. style.css의 --brush와 같아야 한다 */
+export const FONT_BRUSH = `"Yeon Sung", ${FONT}`;
 
 /** 달릴 수 있는 길의 절반 폭(m) */
 export const ROAD_HALF = 3.7;

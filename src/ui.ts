@@ -1,4 +1,4 @@
-import { FONT } from './config';
+import { FONT, FONT_BRUSH, FONT_DISPLAY } from './config';
 const RANK_KEY = 'talbook.records.v1';
 const BAD_WORDS = ['시발', '씨발', '병신', '개새', '좆', 'fuck', 'shit'];
 
@@ -41,9 +41,9 @@ export function fmtTime(ms: number): string {
  * @return {string|null} 오류 안내 문구 또는 null
  */
 export function validateNick(nick: string): string | null {
-  if (nick.length < 2 || nick.length > 8) return '닉네임은 2~8자로 입력해 주세요.';
+  if (nick.length < 2 || nick.length > 8) return '이름은 2~8자로 입력해 주세요.';
   const lower = nick.toLowerCase();
-  if (BAD_WORDS.some((w) => lower.includes(w))) return '사용할 수 없는 닉네임입니다.';
+  if (BAD_WORDS.some((w) => lower.includes(w))) return '사용할 수 없는 이름입니다.';
   return null;
 }
 
@@ -226,14 +226,18 @@ export class Hud {
   }
 
   /**
-   * 화면 가운데에 짧은 문구를 띄운다.
+   * 화면 가운데에 짧은 문구를 띄운다. 알림은 붉은 띠의 구호로, 대사와 도움말은 빨리 읽히는 쪽지로 보여 준다.
    * @author heojeehaeng(claude)
    * @param {string} msg 문구
    * @param {number} sec 표시 시간(초)
+   * @param {boolean} hint true면 도움말 쪽지로 띄운다
    */
-  toast(msg: string, sec = 1.4): void {
+  toast(msg: string, sec = 1.4, hint = false): void {
     const el = $('toast');
     el.textContent = msg;
+    el.classList.toggle('hint', hint);
+    // 따옴표가 든 문구는 누군가의 대사다. 구호 글꼴에 없는 글자가 섞일 수 있고 빨리 읽혀야 하므로 쪽지로 띄운다.
+    el.classList.toggle('line', !hint && msg.includes('"'));
     el.classList.add('on');
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => el.classList.remove('on'), sec * 1000);
@@ -250,7 +254,7 @@ export function showResult(r: RunResult): void {
   $('res-rank').textContent = `${r.rank}위 / ${r.total}명`;
   $('res-title').textContent = r.title;
   $('res-stats').textContent = `넘어짐 ${r.falls}회 · 발각 ${r.detections}회`;
-  $('res-nick').textContent = r.nick;
+  $('res-nick').textContent = `${r.nick} 동무`;
   $('result').classList.remove('hidden');
 }
 
@@ -276,7 +280,7 @@ export function showRanking(todayOnly: boolean): void {
   if (!rows.length) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = '아직 탈북에 성공한 사람이 없습니다.';
+    li.textContent = '아직 탈북에 성공한 동무가 없습니다.';
     list.append(li);
   }
   rows.forEach((r, i) => {
@@ -312,14 +316,14 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
   sky.addColorStop(1, '#f2a65a');
   g.fillStyle = sky;
   g.fillRect(0, 0, 1080, 1920);
-  const font = FONT;
+  const font = FONT_DISPLAY;
   g.textAlign = 'center';
   g.fillStyle = '#ffffff';
-  g.font = `bold 64px ${font}`;
+  g.font = `64px ${font}`;
   g.fillText('탈북 온라인', 540, 190);
-  g.font = `bold 150px ${font}`;
+  g.font = `150px ${font}`;
   g.fillStyle = '#ffe14d';
-  g.fillText('탈북 성공!', 540, 380);
+  g.fillText('탈북 표창장', 540, 380);
 
   // 생활관 문 앞에서 두 팔을 든 리용길
   g.fillStyle = '#8d8f7a';
@@ -329,7 +333,7 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
   g.fillStyle = '#2e4a2e';
   g.fillRect(340, 560, 400, 80);
   g.fillStyle = '#ffffff';
-  g.font = `bold 48px ${font}`;
+  g.font = `48px ${font}`;
   g.fillText('SS사단 생활관', 540, 617);
   g.fillStyle = '#3d4f45';
   g.fillRect(0, 1040, 1080, 60);
@@ -346,23 +350,36 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
   g.fill();
 
   g.fillStyle = '#ffffff';
-  g.font = `bold 60px ${font}`;
+  g.font = `60px ${font}`;
   g.fillText('도착 소요 시간', 540, 1210);
-  g.font = `bold 190px ${font}`;
+  g.font = `190px ${font}`;
   g.fillText(fmtTime(r.timeMs), 540, 1400);
-  g.font = `bold 84px ${font}`;
+  g.font = `84px ${font}`;
   g.fillStyle = '#ffe14d';
   g.fillText(`${r.rank}위`, 540, 1520);
+  // 붉은 도장
+  g.save();
+  g.translate(930, 1150);
+  g.rotate(-0.24);
+  g.strokeStyle = g.fillStyle = '#f0523a';
+  g.lineWidth = 9;
+  g.beginPath();
+  g.arc(0, 0, 92, 0, Math.PI * 2);
+  g.stroke();
+  g.font = `58px ${FONT_BRUSH}`;
+  g.fillText('탈북', 0, -6);
+  g.fillText('성공', 0, 52);
+  g.restore();
   g.fillStyle = 'rgba(0,0,0,0.35)';
   g.fillRect(190, 1570, 700, 110);
   g.fillStyle = '#ffffff';
-  g.font = `bold 64px ${font}`;
+  g.font = `64px ${font}`;
   g.fillText(`「${r.title}」`, 540, 1647);
-  g.font = `44px ${font}`;
+  g.font = `600 44px ${FONT}`;
   g.fillText(`넘어짐 ${r.falls}회 · 발각 ${r.detections}회`, 540, 1750);
-  g.font = `bold 48px ${font}`;
-  g.fillText(r.nick, 540, 1820);
-  g.font = `34px ${font}`;
+  g.font = `800 48px ${FONT}`;
+  g.fillText(`${r.nick} 동무`, 540, 1820);
+  g.font = `500 34px ${FONT}`;
   g.fillStyle = 'rgba(255,255,255,0.8)';
   g.fillText(location.host, 540, 1875);
   return cv;
@@ -376,9 +393,14 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
  */
 export async function shareCard(r: RunResult, forceDownload: boolean): Promise<void> {
   // 카드는 한 번 그리면 끝이므로, 카드에 들어가는 글자의 웹 글꼴을 먼저 받아 둔다. 1.5초 안에 오지 않으면 기본 글꼴로 그린다.
-  const words = `탈북 온라인 성공! SS사단 생활관 도착 소요 시간 위 넘어짐 발각 회 · 「」 0123456789:. ${r.title} ${r.nick} ${location.host}`;
+  const words = `탈북 온라인 표창장 성공 동무 SS사단 생활관 도착 소요 시간 위 넘어짐 발각 회 · 「」 0123456789:. ${r.title} ${r.nick} ${location.host}`;
   await Promise.race([
-    Promise.all([document.fonts.load(`bold 60px ${FONT}`, words), document.fonts.load(`44px ${FONT}`, words)]),
+    Promise.all([
+      document.fonts.load(`60px ${FONT_DISPLAY}`, words),
+      document.fonts.load(`58px ${FONT_BRUSH}`, words),
+      document.fonts.load(`800 48px ${FONT}`, words),
+      document.fonts.load(`600 44px ${FONT}`, words),
+    ]),
     new Promise((resolve) => window.setTimeout(resolve, 1500)),
   ]).catch(() => undefined);
   const cv = drawCard(r);

@@ -154,7 +154,7 @@ class Game implements Ctx {
   hintOnce(text: string): void {
     if (this.hints.has(text)) return;
     this.hints.add(text);
-    this.toast(text, 2.6);
+    this.hud.toast(text, 2.6, true);
   }
 
   /**
@@ -510,19 +510,19 @@ class Game implements Ctx {
 // 배경 모델을 먼저 받아야 코스를 만들 수 있으므로, 그동안 시작 단추를 잠가 둔다.
 const startBtn = document.getElementById('btn-start') as HTMLButtonElement;
 startBtn.disabled = true;
-startBtn.textContent = '불러오는 중…';
+startBtn.textContent = '출발 준비 중…';
 // 말풍선은 캔버스에 그려 두므로, 그리기 전에 웹 글꼴을 받아 둔다. 인터넷이 안 되면 2.5초 뒤 기본 글꼴로 넘어가고, 글꼴이 늦게 오면 그때 다시 그린다.
 const fonts = Promise.race([
   document.fonts.load(`800 40px ${FONT}`, BUBBLE_TEXT),
   new Promise((resolve) => window.setTimeout(resolve, 2500)),
 ]).catch(() => undefined);
 const models = loadProps((done, total) => {
-  startBtn.textContent = `불러오는 중… ${Math.round((done / total) * 100)}%`;
+  startBtn.textContent = `출발 준비 중… ${Math.round((done / total) * 100)}%`;
 });
 Promise.all([models, fonts]).then(() => {
   const game = new Game();
   startBtn.disabled = false;
-  startBtn.textContent = '탈북 시작';
+  startBtn.textContent = '탈북 시작!';
   // 개발 서버에서만 콘솔로 상태를 들여다볼 수 있게 한다.
   if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) (window as unknown as { __game: Game }).__game = game;
 });

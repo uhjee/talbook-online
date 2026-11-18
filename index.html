@@ -10,6 +10,9 @@
       crossorigin
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Yeon+Sung&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -86,51 +89,107 @@
     </div>
 
     <div id="menu" class="screen">
-      <div class="panel">
-        <p class="kicker">달려서 귀순하는 3D 아케이드</p>
-        <h1>탈북 온라인</h1>
-        <ol class="route">
-          <li>아오지 탄광</li>
-          <li>북한 시내</li>
-          <li>국경과 DMZ</li>
-          <li>SS사단</li>
-        </ol>
-        <input id="nick" type="text" maxlength="8" placeholder="닉네임 (2~8자)" autocomplete="off" />
-        <p id="nick-error" class="error"></p>
-        <button id="btn-start" class="primary">탈북 시작</button>
-        <button id="btn-rank">랭킹 보기</button>
+      <div class="panel poster">
+        <div class="poster-art">
+          <svg viewBox="0 0 400 270" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs><clipPath id="poster-clip"><circle cx="24" cy="24" r="21" /></clipPath></defs>
+            <rect width="400" height="270" fill="#d8392f" />
+            <g fill="#e8563f">
+              <polygon points="200,118 -60,-10 -60,52" />
+              <polygon points="200,118 40,-60 112,-60" />
+              <polygon points="200,118 176,-60 232,-60" />
+              <polygon points="200,118 300,-60 372,-60" />
+              <polygon points="200,118 460,-6 460,56" />
+              <polygon points="200,118 460,150 460,214" />
+              <polygon points="200,118 330,330 400,330" />
+              <polygon points="200,118 170,330 236,330" />
+              <polygon points="200,118 10,330 80,330" />
+              <polygon points="200,118 -60,150 -60,214" />
+            </g>
+            <circle cx="200" cy="118" r="100" fill="#ffd23f" />
+            <circle cx="200" cy="118" r="86" fill="#fff1c9" />
+            <path d="M-10 214 C50 160 96 226 160 190 L176 300 L-10 300 Z" fill="#b82a22" />
+            <path d="M-10 226 C50 172 96 238 160 202" fill="none" stroke="#8f1f1a" stroke-width="5" />
+            <g transform="translate(64 214)">
+              <circle r="21" fill="#ffd23f" stroke="#171922" stroke-width="2.5" />
+              <ellipse cx="-1" cy="2" rx="11" ry="8" fill="#b98a4a" stroke="#171922" stroke-width="2" />
+              <path d="M7 -12 L11 6" stroke="#171922" stroke-width="2.5" stroke-linecap="round" />
+              <ellipse cx="6.4" cy="-13" rx="3" ry="4" fill="#d9dde2" stroke="#171922" stroke-width="1.6" />
+            </g>
+            <g transform="translate(128 46) scale(3)">
+              <g clip-path="url(#poster-clip)">
+                <ellipse cx="24" cy="50" rx="19" ry="13" fill="#4f6a8f" stroke="#171922" stroke-width="2" />
+                <rect x="12" y="36.5" width="24" height="5" rx="2.5" fill="#e9e2cf" stroke="#171922" stroke-width="1.6" />
+              </g>
+              <circle cx="11.6" cy="25.5" r="2.4" fill="#f2cdab" stroke="#171922" stroke-width="1.6" />
+              <circle cx="36.4" cy="25.5" r="2.4" fill="#f2cdab" stroke="#171922" stroke-width="1.6" />
+              <circle cx="24" cy="24" r="12.5" fill="#f2cdab" stroke="#171922" stroke-width="2" />
+              <path d="M11.8 22 Q11 10.5 24 10.5 Q37 10.5 36.2 22 Q30 16.5 24 17.5 Q18 16.5 11.8 22 Z" fill="#1c1612" />
+              <path d="M11 19.5 Q12 5 24 5 Q36 5 37 19.5 Z" fill="#4f6a8f" stroke="#171922" stroke-width="2" stroke-linejoin="round" />
+              <rect x="8.5" y="17.5" width="31" height="4.6" rx="2.3" fill="#3f5674" stroke="#171922" stroke-width="1.8" />
+              <path d="M16.6 21.6 L21.6 22.8 M31.4 21.6 L26.4 22.8" stroke="#171922" stroke-width="1.8" stroke-linecap="round" />
+              <ellipse cx="19.4" cy="25.8" rx="1.7" ry="2.3" fill="#171922" />
+              <ellipse cx="28.6" cy="25.8" rx="1.7" ry="2.3" fill="#171922" />
+              <path d="M19.5 30.6 Q24 35.6 28.5 30.6 Z" fill="#7a2b22" stroke="#171922" stroke-width="1.2" stroke-linejoin="round" />
+              <circle cx="24" cy="24" r="21" fill="none" stroke="#171922" stroke-width="2.4" />
+            </g>
+          </svg>
+          <p class="kicker">배고픈 자여, 남으로 달리라</p>
+          <h1>탈북 온라인</h1>
+        </div>
+        <p class="slogan">모두 다 생활관 문을 향하여 앞으로<b>!</b></p>
+        <div class="poster-form">
+          <ol class="route">
+            <li>아오지 탄광</li>
+            <li>북한 시내</li>
+            <li>국경과 DMZ</li>
+            <li>SS사단</li>
+          </ol>
+          <input id="nick" type="text" maxlength="8" placeholder="동무의 이름 (2~8자)" autocomplete="off" />
+          <p id="nick-error" class="error"></p>
+          <button id="btn-start" class="primary">탈북 시작!</button>
+          <button id="btn-rank">탈북 영웅 명예 게시판</button>
+        </div>
       </div>
     </div>
 
     <div id="result" class="screen hidden">
-      <div class="panel">
-        <p class="kicker">터치다운</p>
-        <h2>탈북 성공!</h2>
-        <p id="res-nick" class="sub"></p>
+      <div class="panel cert">
+        <h2 class="brush">탈북 표창장</h2>
+        <p id="res-nick" class="who"></p>
+        <p id="res-title" class="badge"></p>
         <p id="res-time" class="big"></p>
         <p id="res-rank" class="rank"></p>
-        <p id="res-title" class="badge"></p>
         <p id="res-stats" class="sub"></p>
+        <div class="cert-foot">
+          <p>위 동무는 아오지 탄광에서 SS사단 생활관까지 쉬지 않고 달려 탈북에 성공하였기에 이를 표창함.</p>
+          <span class="seal">탈북<br />성공</span>
+        </div>
         <button id="btn-share" class="primary">공유하기</button>
         <div class="row">
           <button id="btn-save">이미지 저장</button>
-          <button id="btn-rank2">랭킹 보기</button>
+          <button id="btn-rank2">명예 게시판</button>
         </div>
         <button id="btn-retry">다시 하기</button>
       </div>
     </div>
 
     <div id="fail" class="screen hidden">
-      <div class="panel">
-        <h2 class="fail">탈북 실패</h2>
-        <p id="fail-reason" class="sub"></p>
+      <div class="panel crit">
+        <span class="stamp">탈북 실패</span>
+        <h2 class="brush">자아비판서</h2>
+        <p id="fail-reason" class="who"></p>
+        <p class="crit-text">나는 발밑의 붉은 원을 살피지 않는 엄중한 과오를 범하였습니다. 다음에는 반드시 피해 달리겠습니다.</p>
         <button id="btn-fail-retry" class="primary">다시 하기</button>
       </div>
     </div>
 
     <div id="rank" class="screen hidden">
-      <div class="panel">
-        <h2>랭킹</h2>
+      <div class="panel board">
+        <div class="board-head">
+          <p>우리 탈북끼리</p>
+          <h2>탈북 영웅 명예 게시판</h2>
+        </div>
         <div class="tabs">
           <button id="tab-all" class="on">전체 순위</button>
           <button id="tab-today">오늘 순위</button>

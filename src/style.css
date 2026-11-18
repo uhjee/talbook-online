@@ -1,15 +1,21 @@
-/* 게임 속 외곽선 그림체에 맞춘 화면 표시: 크림색 종이, 굵은 먹선, 딱 떨어지는 그림자 */
+/* 선전화 양식의 화면 표시: 크림색 종이, 굵은 먹선, 주홍과 남색 잉크, 비스듬한 구호 띠 */
 :root {
   --ink: #171922;
   --paper: #fff7e6;
   --paper-2: #f1e4c6;
   --yellow: #ffd23f;
   --red: #d8392f;
+  --red-deep: #b82a22;
+  --navy: #1f2f5c;
   --mute: #666a78;
   --line: 2.5px;
-  /* 글꼴은 Pretendard 하나로 통일한다. 제목과 대사는 굵기로만 구분한다. config.ts의 FONT와 같아야 한다. */
+  /* 글꼴 규칙. config.ts의 FONT, FONT_DISPLAY, FONT_BRUSH와 같아야 한다.
+     --body: 대사와 도움말처럼 달리면서 빨리 읽어야 하는 글 (Pretendard)
+     --display: 제목, 구호, 단추, 구간 이름 (검은고딕). 검은고딕에 없는 영문과 드문 한글은 Pretendard로 나온다
+     --brush: 도장, 표창장 제목처럼 붓으로 쓴 글. 붓글씨 글꼴을 바꾸려면 이 줄의 첫 이름만 바꾸면 된다 */
   --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  --display: var(--font);
+  --display: 'Black Han Sans', var(--font);
+  --brush: 'Yeon Sung', var(--font);
   --body: var(--font);
 }
 * {
@@ -22,6 +28,8 @@ body {
   overflow: hidden;
   background: #0d0a08;
   font-family: var(--body);
+  /* 검은고딕과 연성체는 굵기가 하나뿐이다. 굵게 지정해도 억지로 굵게 만들지 않고, 대신 나오는 Pretendard 글자만 굵게 나오게 한다. */
+  font-synthesis: none;
   color: var(--ink);
   -webkit-user-select: none;
   user-select: none;
@@ -61,38 +69,43 @@ body {
 }
 #stage,
 #timer {
-  padding: 3px 14px;
   border: var(--line) solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-  box-shadow: 0 3px 0 var(--ink);
 }
+/* 구간 이름: 비스듬한 붉은 띠 */
 #stage {
+  margin-left: 4px;
+  padding: 1px 16px 1px 10px;
+  background: var(--red);
+  box-shadow: 4px 4px 0 var(--navy);
+  color: var(--paper);
+  transform: skewX(-10deg);
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 17px;
+  font-weight: 900;
+  font-size: 19px;
 }
 #stage::before {
-  content: '';
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: var(--red);
+  content: '★';
+  margin-right: 6px;
+  color: var(--yellow);
+  font-family: var(--body);
+  font-size: 0.8em;
   vertical-align: 1px;
 }
+/* 시계는 숫자 폭이 일정해야 흔들리지 않으므로 Pretendard로 둔다. */
 #timer {
+  padding: 2px 12px;
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--ink);
   font-size: 21px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
+/* 진행 막대: 깃발이 꽂힌 진군로 */
 #progress {
   position: relative;
-  height: 13px;
-  margin-top: 9px;
+  height: 12px;
+  margin-top: 18px;
   border: var(--line) solid var(--ink);
-  border-radius: 999px;
   background: rgba(255, 247, 230, 0.88);
 }
 #progress-fill {
@@ -100,33 +113,52 @@ body {
   height: 100%;
   width: 0;
   min-width: 4px;
-  border-radius: 999px;
   background: var(--yellow);
 }
-/* 진행 막대 끝에서 달리는 점 */
+/* 진군로를 달리는 붉은 별. 먹색 별을 조금 크게 깔아 테두리를 낸다. */
+#progress-fill::before,
 #progress-fill::after {
   content: '';
   position: absolute;
-  right: -8px;
   top: 50%;
-  width: 15px;
-  height: 15px;
-  margin-top: -7.5px;
-  border: var(--line) solid var(--ink);
-  border-radius: 50%;
+  z-index: 1;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+#progress-fill::before {
+  right: -15px;
+  width: 30px;
+  height: 30px;
+  margin-top: -16px;
+  background: var(--ink);
+}
+#progress-fill::after {
+  right: -11px;
+  width: 22px;
+  height: 22px;
+  margin-top: -12px;
   background: var(--red);
 }
-/* 구간이 바뀌는 지점 */
+/* 구간이 바뀌는 지점에 꽂은 깃발 */
 #progress i {
   position: absolute;
-  top: 0;
   bottom: 0;
   width: 2px;
+  height: 22px;
   background: var(--ink);
-  opacity: 0.45;
+}
+#progress i::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  border: 4px solid transparent;
+  border-left: 9px solid var(--red);
+  border-right: 0;
 }
 
+/* 알림: 붉은 띠에 노란 글씨로 쓴 구호. 대사(.line)와 도움말(.hint)은 빨리 읽히도록 크림색 쪽지에 Pretendard로 쓴다. */
 #toast {
+  --sk: skewX(-6deg);
   position: fixed;
   left: 0;
   right: 0;
@@ -135,21 +167,48 @@ body {
   width: fit-content;
   max-width: min(88%, 560px);
   margin: 0 auto;
-  transform: translateY(-50%);
+  transform: translateY(-50%) var(--sk);
   word-break: keep-all;
-  padding: 8px 20px;
+  padding: 5px 24px;
   border: var(--line) solid var(--ink);
-  border-radius: 16px;
-  background: var(--paper);
-  box-shadow: 0 4px 0 var(--ink);
+  background: var(--red);
+  box-shadow: 5px 5px 0 var(--ink);
+  color: var(--yellow);
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 21px;
-  line-height: 1.3;
+  font-weight: 900;
+  font-size: 25px;
+  line-height: 1.25;
   text-align: center;
   opacity: 0;
   transition: opacity 0.15s;
   pointer-events: none;
+}
+#toast.line,
+#toast.hint {
+  --sk: skewX(0deg);
+  padding: 8px 20px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-weight: 800;
+  font-size: 21px;
+  line-height: 1.3;
+}
+#toast.hint {
+  padding: 8px 18px 8px 14px;
+  border-left-width: 10px;
+  border-left-color: var(--red);
+  font-weight: 700;
+  font-size: 18px;
+  text-align: left;
+}
+#toast.hint::before {
+  content: '교시';
+  margin-right: 9px;
+  color: var(--red);
+  font-family: var(--brush);
+  font-weight: 400;
+  font-size: 1.2em;
 }
 #toast.on {
   opacity: 1;
@@ -157,13 +216,13 @@ body {
 }
 @keyframes toast-pop {
   0% {
-    transform: translateY(-50%) scale(0.7);
+    transform: translateY(-50%) var(--sk) scale(0.7);
   }
   70% {
-    transform: translateY(-50%) scale(1.06);
+    transform: translateY(-50%) var(--sk) scale(1.06);
   }
   100% {
-    transform: translateY(-50%) scale(1);
+    transform: translateY(-50%) var(--sk) scale(1);
   }
 }
 #taunt {
@@ -178,7 +237,7 @@ body {
   background: var(--red);
   box-shadow: 0 3px 0 var(--ink);
   color: #fff;
-  font-family: var(--display);
+  font-family: var(--body);
   font-weight: 800;
   font-size: 16px;
   text-align: center;
@@ -299,7 +358,7 @@ body {
 }
 #shout .say span {
   display: block;
-  font-family: var(--display);
+  font-family: var(--body);
   font-weight: 800;
   font-size: 23px;
   line-height: 1.25;
@@ -387,7 +446,7 @@ body {
 }
 #keys .k em {
   margin-left: 4px;
-  font-family: var(--display);
+  font-family: var(--body);
   font-weight: 800;
   font-style: normal;
   font-size: 15px;
@@ -570,82 +629,123 @@ body {
   background: rgba(12, 14, 22, 0.82);
 }
 .panel {
+  position: relative;
   width: min(400px, 100%);
-  padding: 26px 22px 24px;
+  padding: 24px 22px 24px;
   border: 3px solid var(--ink);
-  border-radius: 24px;
   background: var(--paper);
-  box-shadow: 0 8px 0 var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
   text-align: center;
 }
-.kicker {
-  display: inline-block;
-  margin: 0 0 12px;
-  padding: 3px 13px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--paper);
-  font-size: 12px;
-  font-weight: 700;
-}
-h1 {
-  margin: 0 0 14px;
-  font-family: var(--display);
-  font-size: clamp(40px, 14vw, 58px);
-  font-weight: 900;
-  line-height: 1.05;
-  color: var(--yellow);
-  -webkit-text-stroke: 7px var(--ink);
-  paint-order: stroke fill;
-  text-shadow: 0 5px 0 var(--ink);
-}
+h1,
 h2 {
-  margin: 0 0 4px;
+  margin: 0;
   font-family: var(--display);
-  font-size: 36px;
   font-weight: 900;
   line-height: 1.1;
 }
-h2.fail {
-  color: var(--red);
+h2 {
+  font-size: 34px;
 }
+/* 붓으로 쓴 제목 */
+h2.brush {
+  color: var(--red-deep);
+  font-family: var(--brush);
+  font-weight: 400;
+  font-size: 42px;
+}
+
+/* 시작 화면: 선전화 한 장. 햇살 속의 리용길, 비스듬한 제목, 아래의 구호 띠 */
+.panel.poster {
+  padding: 0;
+  overflow: hidden;
+}
+.poster-art {
+  position: relative;
+  height: clamp(150px, 36vh, 270px);
+  background: var(--red);
+  overflow: hidden;
+}
+.poster-art svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.poster-art .kicker {
+  position: absolute;
+  left: 12px;
+  top: 7px;
+  margin: 0;
+  color: var(--yellow);
+  font-family: var(--brush);
+  font-size: 18px;
+  text-shadow: 1.5px 1.5px 0 var(--ink);
+}
+.poster-art h1 {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  font-size: clamp(42px, 14.5vw, 62px);
+  color: var(--paper);
+  -webkit-text-stroke: 6px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 5px 5px 0 var(--navy);
+  transform: skewX(-8deg) rotate(-2deg);
+  white-space: nowrap;
+}
+.slogan {
+  margin: 0;
+  padding: 6px 8px 5px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  background: #fff;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(15px, 4.7vw, 20px);
+  white-space: nowrap;
+}
+.slogan b {
+  color: var(--red);
+  font-weight: inherit;
+}
+.poster-form {
+  padding: 14px 20px 22px;
+}
+/* 달릴 길: 별로 이은 진군로 */
 .route {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px 0;
-  margin: 0 0 18px;
+  margin: 0 0 13px;
   padding: 0;
   list-style: none;
-  font-size: 12px;
-  font-weight: 700;
-}
-.route li {
-  position: relative;
-  padding: 3px 9px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper-2);
-}
-.route li + li {
-  margin-left: 16px;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 14px;
 }
 .route li + li::before {
-  content: '›';
-  position: absolute;
-  left: -13px;
-  top: 50%;
-  transform: translateY(-56%);
-  font-size: 15px;
+  content: '★';
+  margin: 0 6px;
+  color: var(--red);
+  font-family: var(--body);
+  font-size: 10px;
+  vertical-align: 2px;
 }
 .route li:last-child {
-  background: var(--yellow);
+  color: var(--red-deep);
 }
 .sub {
   margin: 6px 0 12px;
   color: var(--mute);
   font-size: 15px;
   font-weight: 500;
+}
+.who {
+  margin: 8px 0 8px;
+  font-size: 18px;
+  font-weight: 800;
 }
 .big {
   margin: 0;
@@ -655,21 +755,23 @@ h2.fail {
   font-variant-numeric: tabular-nums;
 }
 .rank {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 21px;
+  font-weight: 900;
+  font-size: 22px;
 }
 .badge {
   display: inline-block;
-  margin: 0 0 6px;
-  padding: 5px 18px;
-  border-radius: 999px;
-  background: var(--ink);
+  margin: 0 0 4px;
+  padding: 2px 18px;
+  border: var(--line) solid var(--ink);
+  background: var(--red);
+  box-shadow: 4px 4px 0 var(--navy);
   color: var(--yellow);
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 19px;
+  font-weight: 900;
+  font-size: 20px;
+  transform: skewX(-8deg);
 }
 .error {
   min-height: 18px;
@@ -688,11 +790,12 @@ button {
   display: block;
   width: 100%;
   border: var(--line) solid var(--ink);
-  border-radius: 14px;
+  border-radius: 0;
   color: var(--ink);
+  font-synthesis: none;
 }
 input {
-  padding: 13px;
+  padding: 12px;
   background: #fff;
   font-family: var(--body);
   font-size: 17px;
@@ -710,24 +813,32 @@ input:focus {
   box-shadow: 0 0 0 4px var(--yellow);
 }
 button {
-  margin-top: 11px;
-  padding: 11px;
+  margin-top: 12px;
+  padding: 8px;
   background: #fff;
-  box-shadow: 0 4px 0 var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 19px;
+  font-weight: 900;
+  font-size: 20px;
   cursor: pointer;
   transition: transform 0.05s, box-shadow 0.05s;
 }
 button:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--ink);
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--ink);
 }
+/* 으뜸 단추: 붉은 구호 띠 */
 button.primary {
-  padding: 13px;
-  background: var(--yellow);
-  font-size: 23px;
+  padding: 8px;
+  background: var(--red);
+  box-shadow: 5px 5px 0 var(--navy);
+  color: var(--paper);
+  font-size: 27px;
+  transform: skewX(-6deg);
+}
+button.primary:active {
+  transform: skewX(-6deg) translate(3px, 3px);
+  box-shadow: 2px 2px 0 var(--navy);
 }
 button:disabled {
   opacity: 0.6;
@@ -735,21 +846,118 @@ button:disabled {
 }
 .row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 .row button {
   flex: 1;
 }
+
+/* 완주 화면: 붉은 겹테두리를 두른 표창장 */
+.panel.cert {
+  box-shadow: inset 0 0 0 5px var(--paper), inset 0 0 0 7px var(--red-deep), inset 0 0 0 9px var(--paper), inset 0 0 0 10px var(--red-deep), 8px 8px 0 var(--ink);
+  padding: 30px 28px 28px;
+}
+.cert-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 6px;
+  text-align: left;
+}
+.cert-foot p {
+  flex: 1;
+  margin: 0;
+  color: var(--mute);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+/* 붉은 도장 */
+.seal {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border: 3.5px solid var(--red);
+  border-radius: 50%;
+  color: var(--red);
+  font-family: var(--brush);
+  font-size: 21px;
+  line-height: 1.05;
+  text-align: center;
+  transform: rotate(-14deg);
+}
+
+/* 실패 화면: 도장이 찍힌 자아비판서 */
+.panel.crit {
+  padding-top: 30px;
+  text-align: left;
+  /* 줄 쳐진 원고지 느낌 */
+  background-image: repeating-linear-gradient(to bottom, transparent 0 29px, rgba(23, 25, 34, 0.1) 29px 30px);
+}
+.crit-text {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 30px;
+  word-break: keep-all;
+}
+.stamp {
+  position: absolute;
+  right: 16px;
+  top: 22px;
+  padding: 0 12px;
+  border: 4px solid var(--red);
+  color: var(--red);
+  font-family: var(--display);
+  font-size: 27px;
+  line-height: 1.35;
+  transform: rotate(-11deg);
+}
+
+/* 랭킹 화면: 옛 누리집 머리띠를 단 명예 게시판 */
+.panel.board {
+  padding-top: 0;
+  overflow: hidden;
+}
+.board-head {
+  margin: 0 -22px 14px;
+  padding: 9px 12px 10px;
+  border-bottom: 3px solid var(--ink);
+  background: #7db9e4;
+  color: #fff;
+}
+.board-head p {
+  margin: 0 0 1px;
+  color: var(--navy);
+  font-family: var(--brush);
+  font-size: 17px;
+}
+.board-head h2 {
+  font-size: clamp(22px, 7vw, 29px);
+  text-shadow: 3px 3px 0 var(--navy);
+  white-space: nowrap;
+}
 .tabs {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 10px;
 }
 .tabs button {
   margin-top: 0;
-  padding: 8px;
-  box-shadow: 0 3px 0 var(--ink);
-  font-size: 16px;
+  padding: 5px;
+  box-shadow: 3px 3px 0 var(--ink);
+  font-size: 17px;
+}
+.tabs button::before {
+  content: '■';
+  margin-right: 6px;
+  color: var(--red);
+  font-family: var(--body);
+  font-size: 0.6em;
+  vertical-align: 3px;
 }
 .tabs button.on {
   background: var(--yellow);
@@ -757,7 +965,7 @@ button:disabled {
 #rank-list {
   max-height: 46vh;
   margin: 14px 0 0;
-  padding: 0 2px 4px;
+  padding: 0 4px 4px 0;
   overflow-y: auto;
   list-style: none;
   text-align: left;
@@ -768,9 +976,8 @@ button:disabled {
   gap: 10px;
   align-items: center;
   margin-top: 6px;
-  padding: 7px 12px 7px 8px;
+  padding: 6px 12px 6px 8px;
   border: 2px solid var(--ink);
-  border-radius: 12px;
   background: #fff;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -784,13 +991,15 @@ button:disabled {
   border-radius: 50%;
   background: var(--paper-2);
   font-family: var(--display);
-  font-weight: 800;
+  font-weight: 900;
 }
+/* 1~3위는 훈장 색 */
 #rank-list li:nth-child(1) span:first-child {
-  background: var(--yellow);
+  background: var(--red);
+  color: var(--yellow);
 }
 #rank-list li:nth-child(2) span:first-child {
-  background: #d7dbe2;
+  background: var(--yellow);
 }
 #rank-list li:nth-child(3) span:first-child {
   background: #e6bd8f;
@@ -878,19 +1087,27 @@ button:disabled {
 
 /* ---------- 좁은 화면 ---------- */
 @media (max-width: 420px) {
-  /* 네 구간이 한 줄에 들어가지 않으므로 두 줄로 나눠 놓는다. */
   .route {
-    display: grid;
-    grid-template-columns: auto auto;
-    gap: 7px 20px;
-  }
-  .route li + li {
-    margin-left: 0;
+    font-size: 13px;
   }
   .route li + li::before {
-    left: -14px;
+    margin: 0 4px;
+  }
+  h2.brush {
+    font-size: 36px;
+  }
+  .stamp {
+    font-size: 22px;
   }
   #toast {
+    font-size: 20px;
+  }
+  #toast.line {
+    font-size: 17px;
+  }
+  #toast.hint {
+    font-size: 15px;
+  }  #toast {
     font-size: 17px;
   }
   #taunt {
@@ -904,7 +1121,7 @@ button:disabled {
     font-size: 17px;
   }
   #stage {
-    font-size: 15px;
+    font-size: 16px;
   }
   #timer {
     font-size: 18px;

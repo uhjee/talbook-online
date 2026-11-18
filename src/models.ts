@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { FONT } from './config';
+import { FONT, FONT_DISPLAY } from './config';
 
 const mats = new Map<number, THREE.MeshLambertMaterial>();
 const toons = new Map<number, THREE.MeshToonMaterial>();
@@ -215,7 +215,7 @@ export function textTexture(text: string, wpx: number, hpx: number, bg: string |
   const lines = text.split('\n');
   const longest = Math.max(...lines.map((l) => l.length));
   const size = Math.floor(Math.min((hpx * 0.86) / (lines.length * 1.3), (wpx * 0.9) / (longest * 1.02)));
-  const font = `bold ${size}px ${FONT}`;
+  const font = `${size}px ${FONT_DISPLAY}`;
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   paintText(t, font, text, () => {
@@ -382,7 +382,7 @@ export function makeCutout(
   const ctx = cv.getContext('2d')!;
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
-  paintText(tex, `bold 20px ${FONT}`, text, () => {
+  paintText(tex, `20px ${FONT_DISPLAY}`, text, () => {
     ctx.clearRect(0, 0, cv.width, cv.height);
     draw(ctx, cv.width, cv.height);
   });

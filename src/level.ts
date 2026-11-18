@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, FONT, STAGES, stagePos } from './config';
+import { CHECKPOINTS, COURSE_LEN, FONT_DISPLAY, STAGES, stagePos } from './config';
 import {
   Barrier, Bear, Cart, Crowd, Ctx, Dasher, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
@@ -490,7 +490,7 @@ function mineDecor(put: Put): void {
     g.fillStyle = '#7a1f1f';
     g.fillRect(0, 0, w, h);
     g.fillStyle = '#ffe9a8';
-    g.font = `bold ${h * 0.16}px ${FONT}`;
+    g.font = `${h * 0.16}px ${FONT_DISPLAY}`;
     g.textAlign = 'center';
     g.fillText('이달의 모범 일꾼', w / 2, h * 0.2);
     // 사진 여섯 장이 전부 같은 얼굴이다.
