@@ -27,8 +27,11 @@ export const SLIDE_TIME = 0.5;
 export const JUMP_V = 7.6;
 export const GRAVITY = 22;
 
-/** 감시자의 시야나 탐조등 빛에 이 시간(초) 넘게 계속 닿아 있어야 발각된다. 스치기만 한 것은 봐준다 */
-export const DETECT_GRACE = 0.15;
+/**
+ * 감시자의 시야나 탐조등 빛에 이 시간(초) 넘게 계속 닿아 있어야 발각된다. 가장자리를 스치기만 한 것은 봐준다.
+ * 길게 잡으면 빨리 지나갈수록 안 걸려서 부스터로 그냥 뚫고 지나갈 수 있게 된다. 0.05초(3프레임)면 속도와 상관없이 걸리는 비율이 거의 같다.
+ */
+export const DETECT_GRACE = 0.05;
 
 /** 넘어지는 동작과 지뢰로 날아가는 동작의 빠르기 배율 */
 export const FALL_RATE = 1.3;
