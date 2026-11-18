@@ -84,6 +84,8 @@ export interface Env {
   /** 화면 전체에 씌울 구간의 메인 색과 세기 */
   tint: THREE.Color;
   grade: number;
+  /** 외곽선 색 */
+  ink: THREE.Color;
 }
 
 export class World {
@@ -92,7 +94,7 @@ export class World {
   /** 적과 장애물은 다시 배치할 때 통째로 지울 수 있도록 배경 소품과 따로 묶는다 */
   private entChunks = new Map<number, THREE.Group>();
   private entAlways = new THREE.Group();
-  private env: Env = { sky: new THREE.Color(), top: new THREE.Color(), fogNear: 10, fogFar: 100, light: 1, tint: new THREE.Color(), grade: 0 };
+  private env: Env = { sky: new THREE.Color(), top: new THREE.Color(), fogNear: 10, fogFar: 100, light: 1, tint: new THREE.Color(), grade: 0, ink: new THREE.Color() };
   private tmp = new THREE.Color();
 
   /**
@@ -250,6 +252,7 @@ export class World {
     e.light = s.light + (other.light - s.light) * k;
     e.tint.setHex(s.tint).lerp(this.tmp.setHex(other.tint), k);
     e.grade = s.grade + (other.grade - s.grade) * k;
+    e.ink.setHex(s.ink).lerp(this.tmp.setHex(other.ink), k);
     return e;
   }
 }

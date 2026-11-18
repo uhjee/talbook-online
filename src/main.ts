@@ -494,7 +494,7 @@ class Game implements Ctx {
     this.sun.target.position.set(0, 0, sz);
     this.sun.position.set(12, 22, sz + 16);
     if (this.outline) {
-      this.outline.setGrade(env.tint, env.grade);
+      this.outline.setGrade(env.tint, env.grade, env.ink);
       this.outline.render(this.scene, this.camera);
     } else this.renderer.render(this.scene, this.camera);
 

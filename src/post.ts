@@ -109,14 +109,16 @@ export class Outline {
   }
 
   /**
-   * 화면 전체에 씌울 구간의 메인 색과 세기를 정한다.
+   * 화면 전체에 씌울 구간의 메인 색과 세기, 외곽선 색을 정한다.
    * @author heojeehaeng(claude)
    * @param {THREE.Color} tint 구간의 메인 색
    * @param {number} grade 씌우는 세기(0~1)
+   * @param {THREE.Color} ink 외곽선 색
    */
-  setGrade(tint: THREE.Color, grade: number): void {
+  setGrade(tint: THREE.Color, grade: number, ink: THREE.Color): void {
     this.mat.uniforms.tint.value.copy(tint);
     this.mat.uniforms.grade.value = grade;
+    this.mat.uniforms.ink.value.copy(ink);
   }
 
   /**
