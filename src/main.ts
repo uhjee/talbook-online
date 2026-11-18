@@ -6,6 +6,7 @@ import { Input } from './input';
 import { buildDecor, buildEntities, Decor } from './level';
 import { Player } from './player';
 import { PARTY_FROM } from './party';
+import { submitOnline } from './rank';
 import { Outline } from './post';
 import { loadProps } from './props';
 import { Hud, pickTitle, RunResult, saveRecord, shareCard, showFail, showRanking, showResult, validateNick } from './ui';
@@ -442,19 +443,35 @@ class Game implements Ctx {
   private finish(): void {
     this.state = 'result';
     this.hud.show(false);
-    const { rank, total } = saveRecord(this.nick, this.runMs);
     const p = this.player;
-    this.result = {
+    const title = pickTitle(this.runMs, p.falls, this.detections, this.animalHits);
+    // 서버에 닿지 못할 때를 대비해 이 기기에도 남겨 둔다.
+    const local = saveRecord(this.nick, this.runMs);
+    const result: RunResult = {
       nick: this.nick,
       timeMs: this.runMs,
       falls: p.falls,
       detections: this.detections,
       animalHits: this.animalHits,
-      rank,
-      total,
-      title: pickTitle(this.runMs, p.falls, this.detections, this.animalHits),
+      rank: 0,
+      total: 0,
+      title,
     };
-    showResult(this.result);
+    this.result = result;
+    showResult(result);
+    // 순위는 서버가 알려 준다. 답이 오면 결과 화면의 순위를 채운다.
+    submitOnline(this.nick, this.runMs, p.falls, this.detections, title)
+      .then(({ rank, total }) => {
+        result.rank = rank;
+        result.total = total;
+      })
+      .catch(() => {
+        // 서버에 올리지 못했으면 이 기기의 기록으로 매긴 순위를 보여 준다.
+        result.rank = local.rank;
+        result.total = local.total;
+        result.local = true;
+      })
+      .finally(() => showResult(result));
   }
 
   /**

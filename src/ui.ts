@@ -1,4 +1,5 @@
 import { FONT, FONT_BRUSH, FONT_DISPLAY } from './config';
+import { fetchRanking, RankRow } from './rank';
 const RANK_KEY = 'talbook.records.v1';
 const BAD_WORDS = ['시발', '씨발', '병신', '개새', '좆', 'fuck', 'shit'];
 
@@ -8,9 +9,12 @@ export interface RunResult {
   falls: number;
   detections: number;
   animalHits: number;
+  /** 순위. 서버의 답을 기다리는 동안은 0이다 */
   rank: number;
   total: number;
   title: string;
+  /** true면 서버에 올리지 못해 이 기기의 기록으로만 매긴 순위다 */
+  local?: boolean;
 }
 
 interface RecordRow {
@@ -87,8 +91,8 @@ export function loadRecords(todayOnly = false): RecordRow[] {
 }
 
 /**
- * 완주 기록을 저장하고 전체 순위를 반환한다.
- * 서버 랭킹을 붙이기 전까지는 이 기기의 브라우저 저장소에만 남긴다.
+ * 완주 기록을 이 기기의 브라우저 저장소에 남기고, 이 기기 안에서의 순위를 반환한다.
+ * 랭킹은 서버에 올리지만, 서버에 닿지 못할 때 보여 줄 수 있도록 여기에도 남겨 둔다.
  * @author heojeehaeng(claude)
  * @param {string} nick 닉네임
  * @param {number} timeMs 도착 소요 시간(ms)
@@ -251,7 +255,8 @@ export class Hud {
  */
 export function showResult(r: RunResult): void {
   $('res-time').textContent = fmtTime(r.timeMs);
-  $('res-rank').textContent = `${r.rank}위 / ${r.total}명`;
+  // 서버가 순위를 알려 줄 때까지는 집계 중이라고 보여 준다.
+  $('res-rank').textContent = r.rank > 0 ? `${r.rank}위 / ${r.total}명${r.local ? ' (이 기기 기준)' : ''}` : '순위 집계 중…';
   $('res-title').textContent = r.title;
   $('res-stats').textContent = `넘어짐 ${r.falls}회 · 발각 ${r.detections}회`;
   $('res-nick').textContent = `${r.nick} 동무`;
@@ -268,19 +273,22 @@ export function showFail(reason: string): void {
   $('fail').classList.remove('hidden');
 }
 
+/** 랭킹 화면을 연 순번. 늦게 도착한 앞선 요청의 답이 화면을 덮어쓰지 않게 한다 */
+let rankTurn = 0;
+
 /**
- * 랭킹 화면에 전체 또는 오늘 순위 상위 100명을 채워 보여 준다.
+ * 랭킹 목록을 화면에 채운다.
  * @author heojeehaeng(claude)
- * @param {boolean} todayOnly true면 오늘 순위를 보여 준다
+ * @param {RankRow[]} rows 빠른 순으로 정렬된 기록
+ * @param {string} empty 기록이 없을 때 보여 줄 문구
  */
-export function showRanking(todayOnly: boolean): void {
-  const rows = loadRecords(todayOnly).slice(0, 100);
+function fillRanking(rows: RankRow[], empty: string): void {
   const list = $('rank-list');
   list.innerHTML = '';
   if (!rows.length) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = '아직 탈북에 성공한 동무가 없습니다.';
+    li.textContent = empty;
     list.append(li);
   }
   rows.forEach((r, i) => {
@@ -294,9 +302,31 @@ export function showRanking(todayOnly: boolean): void {
     li.append(no, name, time);
     list.append(li);
   });
+}
+
+/**
+ * 랭킹 화면에 전체 또는 오늘 순위 상위 100명을 서버에서 받아 보여 준다. 서버에 닿지 못하면 이 기기의 기록을 보여 준다.
+ * @author heojeehaeng(claude)
+ * @param {boolean} todayOnly true면 오늘 순위를 보여 준다
+ */
+export function showRanking(todayOnly: boolean): void {
+  const turn = ++rankTurn;
+  const note = $('rank-note');
   $('tab-all').classList.toggle('on', !todayOnly);
   $('tab-today').classList.toggle('on', todayOnly);
   $('rank').classList.remove('hidden');
+  fillRanking([], '순위를 불러오는 중…');
+  note.textContent = '';
+  fetchRanking(todayOnly)
+    .then((rows) => {
+      if (turn !== rankTurn) return;
+      fillRanking(rows, '아직 탈북에 성공한 동무가 없습니다.');
+    })
+    .catch(() => {
+      if (turn !== rankTurn) return;
+      fillRanking(loadRecords(todayOnly).slice(0, 100), '아직 탈북에 성공한 동무가 없습니다.');
+      note.textContent = '서버에 연결하지 못해 이 기기의 기록만 보입니다.';
+    });
 }
 
 /**
@@ -356,7 +386,7 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
   g.fillText(fmtTime(r.timeMs), 540, 1400);
   g.font = `84px ${font}`;
   g.fillStyle = '#ffe14d';
-  g.fillText(`${r.rank}위`, 540, 1520);
+  if (r.rank > 0) g.fillText(`${r.rank}위`, 540, 1520);
   // 붉은 도장
   g.save();
   g.translate(930, 1150);
