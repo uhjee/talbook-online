@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, FONT, stageAt } from './config';
+import { CHECKPOINTS, COURSE_LEN, DETECT_GRACE, FONT, stageAt } from './config';
 import { BUBBLE_TEXT, Ctx, Entity } from './entities';
 import { Fx } from './fx';
 import { Input } from './input';
@@ -45,8 +45,10 @@ class Game implements Ctx {
   private stageId = '';
   private nick = '';
   private hints = new Set<string>();
-  /** 이번 프레임에 발각되었으면 사유 문구가 들어 있다. 적 갱신이 끝난 뒤 처리한다 */
+  /** 이번 프레임에 시야나 빛에 닿았으면 사유 문구가 들어 있다. 적 갱신이 끝난 뒤 처리한다 */
   private arrestMsg: string | null = null;
+  /** 시야나 빛에 끊기지 않고 닿아 있은 시간(초) */
+  private seenT = 0;
   private fov = 62;
   private fx: Fx;
   private skyCanvas = document.createElement('canvas');
@@ -121,7 +123,8 @@ class Game implements Ctx {
   }
 
   /**
-   * 발각된 플레이어를 곧바로 붙잡는다. 다시 출발한 직후의 무적 시간에는 무시한다.
+   * 이번 프레임에 플레이어가 시야나 빛에 닿았음을 알린다. 잠깐 스친 것은 봐주고, 정해진 시간 넘게 계속 닿아 있으면 붙잡는다.
+   * 다시 출발한 직후의 무적 시간에는 무시한다.
    * @author heojeehaeng(claude)
    * @param {string} msg 발각 사유 문구
    */
@@ -345,14 +348,17 @@ class Game implements Ctx {
     for (const e of this.entities) {
       const dd = e.d - p.d;
       if (e.always || (dd < 210 && dd > -40)) e.update(dt, this);
-      // 발각되었거나 판이 끝났으면 남은 적은 이번 프레임에 갱신하지 않는다.
-      if (this.arrestMsg || this.state !== 'play') break;
+      // 판이 끝났으면 남은 적은 이번 프레임에 갱신하지 않는다.
+      if (this.state !== 'play') break;
     }
     if (this.state !== 'play') return;
-    if (this.arrestMsg) {
+    // 시야나 빛에 닿은 시간을 잰다. 한 프레임이라도 벗어나면 처음부터 다시 잰다.
+    this.seenT = this.arrestMsg ? this.seenT + dt : 0;
+    if (this.arrestMsg && this.seenT >= DETECT_GRACE) {
+      this.seenT = 0;
       this.arrest(this.arrestMsg);
-      this.arrestMsg = null;
     }
+    this.arrestMsg = null;
     for (const cp of CHECKPOINTS) if (p.d >= cp && cp > this.checkpoint) this.checkpoint = cp;
     const stage = stageAt(p.d);
     if (stage.id !== this.stageId) {

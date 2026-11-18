@@ -158,12 +158,17 @@ export async function runAudit(runs = 3) {
     if (ok) events.push({ type: '넘어짐', by: nameOf(current), stage: stageOf(p.d), chain: g.time - lastUp < 1.2 });
     return ok;
   };
+  // 시야나 빛에 닿아도 잠깐은 봐주므로, 닿은 순간이 아니라 실제로 붙잡힌 순간을 센다. 누구에게 걸렸는지는 닿을 때 기억해 둔다.
+  let seer = null;
   const detect = g.detect.bind(g);
   g.detect = (msg) => {
-    if (g.state === 'play' && p.invulnT <= 0 && !g.arrestMsg) {
-      events.push({ type: '발각', by: nameOf(current), stage: stageOf(p.d), fallen: p.state === 'fall' });
-    }
+    seer = current;
     detect(msg);
+  };
+  const arrest = g.arrest.bind(g);
+  g.arrest = (msg) => {
+    events.push({ type: '발각', by: nameOf(seer), stage: stageOf(p.d), fallen: p.state === 'fall' });
+    arrest(msg);
   };
   g.kill = () => events.push({ type: '사망', by: nameOf(current), stage: stageOf(p.d), fallen: p.state === 'fall' });
 
