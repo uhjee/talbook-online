@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { FONT } from './config';
 
 const mats = new Map<number, THREE.MeshLambertMaterial>();
 const toons = new Map<number, THREE.MeshToonMaterial>();
@@ -214,14 +215,44 @@ export function textTexture(text: string, wpx: number, hpx: number, bg: string |
   const lines = text.split('\n');
   const longest = Math.max(...lines.map((l) => l.length));
   const size = Math.floor(Math.min((hpx * 0.86) / (lines.length * 1.3), (wpx * 0.9) / (longest * 1.02)));
-  g.fillStyle = fg;
-  g.font = `bold ${size}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  lines.forEach((l, i) => g.fillText(l, wpx / 2, hpx / 2 + (i - (lines.length - 1) / 2) * size * 1.3));
+  const font = `bold ${size}px ${FONT}`;
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
+  paintText(t, font, text, () => {
+    // 배경을 다시 칠하지 않는 투명한 판은 앞서 그린 글자를 지우고 그린다.
+    g.clearRect(wpx * 0.03, hpx * 0.03, wpx * 0.94, hpx * 0.94);
+    if (bg) {
+      g.fillStyle = bg;
+      g.fillRect(wpx * 0.03, hpx * 0.03, wpx * 0.94, hpx * 0.94);
+    }
+    g.fillStyle = fg;
+    g.font = font;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, wpx / 2, hpx / 2 + (i - (lines.length - 1) / 2) * size * 1.3));
+  });
   return t;
+}
+
+/**
+ * 캔버스에 글자를 그리고, 웹 글꼴이 아직 오지 않았으면 도착한 뒤에 한 번 더 그린다.
+ * 글꼴을 쓰이는 글자 조각만큼만 받아 오므로, 처음 그릴 때는 기기의 기본 글꼴로 그려질 수 있다.
+ * @author heojeehaeng(claude)
+ * @param {THREE.CanvasTexture} tex 다시 그린 뒤 갱신할 텍스처
+ * @param {string} font 캔버스 글꼴 지정
+ * @param {string} text 그릴 글
+ * @param {Function} paint 글자가 들어가는 부분을 지우고 다시 그리는 함수
+ */
+function paintText(tex: THREE.CanvasTexture, font: string, text: string, paint: () => void): void {
+  paint();
+  if (document.fonts.check(font, text)) return;
+  document.fonts
+    .load(font, text)
+    .then(() => {
+      paint();
+      tex.needsUpdate = true;
+    })
+    .catch(() => undefined);
 }
 
 /**
@@ -277,31 +308,35 @@ export function makeBubble(text: string): THREE.Mesh {
     const bh = Math.round(body * px) - pad * 2;
     const r = Math.min(bh / 2, 0.16 * px);
     const cx = cv.width / 2;
-    g.beginPath();
-    g.moveTo(pad + r, pad);
-    g.arcTo(pad + bw, pad, pad + bw, pad + bh, r);
-    g.arcTo(pad + bw, pad + bh, pad, pad + bh, r);
-    // 아래 가운데에 말하는 사람을 가리키는 꼬리를 낸다.
-    g.lineTo(cx + 0.1 * px, pad + bh);
-    g.lineTo(cx, cv.height - pad);
-    g.lineTo(cx - 0.1 * px, pad + bh);
-    g.arcTo(pad, pad + bh, pad, pad, r);
-    g.arcTo(pad, pad, pad + bw, pad, r);
-    g.closePath();
-    g.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    g.fill();
-    g.lineWidth = 8;
-    // 화면의 다른 말풍선과 같은 먹선 테두리를 쓴다.
-    g.strokeStyle = '#171922';
-    g.stroke();
     const size = Math.floor(Math.min((bh * 0.84) / (lines.length * 1.18), (bw * 0.92) / longest));
-    g.fillStyle = '#c0281f';
-    g.font = `${size}px "Jua", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    lines.forEach((l, i) => g.fillText(l, cx, pad + bh / 2 + (i - (lines.length - 1) / 2) * size * 1.18));
+    const font = `800 ${size}px ${FONT}`;
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
+    paintText(tex, font, text, () => {
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.beginPath();
+      g.moveTo(pad + r, pad);
+      g.arcTo(pad + bw, pad, pad + bw, pad + bh, r);
+      g.arcTo(pad + bw, pad + bh, pad, pad + bh, r);
+      // 아래 가운데에 말하는 사람을 가리키는 꼬리를 낸다.
+      g.lineTo(cx + 0.1 * px, pad + bh);
+      g.lineTo(cx, cv.height - pad);
+      g.lineTo(cx - 0.1 * px, pad + bh);
+      g.arcTo(pad, pad + bh, pad, pad, r);
+      g.arcTo(pad, pad, pad + bw, pad, r);
+      g.closePath();
+      g.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      g.fill();
+      g.lineWidth = 8;
+      // 화면의 다른 말풍선과 같은 먹선 테두리를 쓴다.
+      g.strokeStyle = '#171922';
+      g.stroke();
+      g.fillStyle = '#c0281f';
+      g.font = font;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      lines.forEach((l, i) => g.fillText(l, cx, pad + bh / 2 + (i - (lines.length - 1) / 2) * size * 1.18));
+    });
     material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     material.userData.shared = true;
     bubbleMats.set(text, material);
@@ -333,15 +368,22 @@ function wrapBubble(text: string): string[] {
  * @param {Function} draw 캔버스에 그림을 그리는 함수 (g, 가로px, 세로px)
  * @param {number} w 입간판 가로(m)
  * @param {number} h 입간판 세로(m)
+ * @param {string} text 그림 안에 쓰는 글. 글이 있으면 웹 글꼴이 도착한 뒤에 한 번 더 그린다
  * @return {THREE.Group} 입간판
  */
-export function makeCutout(draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number): THREE.Group {
+export function makeCutout(
+  draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number, text = '',
+): THREE.Group {
   const cv = document.createElement('canvas');
   cv.width = 256;
   cv.height = Math.round((256 * h) / w);
-  draw(cv.getContext('2d')!, cv.width, cv.height);
+  const ctx = cv.getContext('2d')!;
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
+  paintText(tex, `bold 20px ${FONT}`, text, () => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    draw(ctx, cv.width, cv.height);
+  });
   const g = new THREE.Group();
   const plane = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),

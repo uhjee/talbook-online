@@ -1,3 +1,4 @@
+import { FONT } from './config';
 const RANK_KEY = 'talbook.records.v1';
 const BAD_WORDS = ['시발', '씨발', '병신', '개새', '좆', 'fuck', 'shit'];
 
@@ -311,7 +312,7 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
   sky.addColorStop(1, '#f2a65a');
   g.fillStyle = sky;
   g.fillRect(0, 0, 1080, 1920);
-  const font = '"Malgun Gothic", "Apple SD Gothic Neo", sans-serif';
+  const font = FONT;
   g.textAlign = 'center';
   g.fillStyle = '#ffffff';
   g.font = `bold 64px ${font}`;
@@ -374,6 +375,12 @@ export function drawCard(r: RunResult): HTMLCanvasElement {
  * @param {boolean} forceDownload true면 공유 창 없이 바로 저장한다
  */
 export async function shareCard(r: RunResult, forceDownload: boolean): Promise<void> {
+  // 카드는 한 번 그리면 끝이므로, 카드에 들어가는 글자의 웹 글꼴을 먼저 받아 둔다. 1.5초 안에 오지 않으면 기본 글꼴로 그린다.
+  const words = `탈북 온라인 성공! SS사단 생활관 도착 소요 시간 위 넘어짐 발각 회 · 「」 0123456789:. ${r.title} ${r.nick} ${location.host}`;
+  await Promise.race([
+    Promise.all([document.fonts.load(`bold 60px ${FONT}`, words), document.fonts.load(`44px ${FONT}`, words)]),
+    new Promise((resolve) => window.setTimeout(resolve, 1500)),
+  ]).catch(() => undefined);
   const cv = drawCard(r);
   const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
   if (!blob) return;

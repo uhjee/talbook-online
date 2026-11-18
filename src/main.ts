@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, stageAt } from './config';
+import { CHECKPOINTS, COURSE_LEN, FONT, stageAt } from './config';
 import { BUBBLE_TEXT, Ctx, Entity } from './entities';
 import { Fx } from './fx';
 import { Input } from './input';
@@ -503,9 +503,9 @@ class Game implements Ctx {
 const startBtn = document.getElementById('btn-start') as HTMLButtonElement;
 startBtn.disabled = true;
 startBtn.textContent = '불러오는 중…';
-// 말풍선은 캔버스에 한 번 그려 두므로, 그리기 전에 웹 글꼴을 받아 둔다. 인터넷이 안 되면 2.5초 뒤 기본 글꼴로 넘어간다.
+// 말풍선은 캔버스에 그려 두므로, 그리기 전에 웹 글꼴을 받아 둔다. 인터넷이 안 되면 2.5초 뒤 기본 글꼴로 넘어가고, 글꼴이 늦게 오면 그때 다시 그린다.
 const fonts = Promise.race([
-  document.fonts.load('40px Jua', BUBBLE_TEXT),
+  document.fonts.load(`800 40px ${FONT}`, BUBBLE_TEXT),
   new Promise((resolve) => window.setTimeout(resolve, 2500)),
 ]).catch(() => undefined);
 const models = loadProps((done, total) => {

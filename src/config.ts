@@ -1,3 +1,6 @@
+/** 화면과 3D 속 글자에 함께 쓰는 글꼴. 웹 글꼴을 받지 못하면 기기의 기본 한글 글꼴로 넘어간다. style.css의 --font와 같아야 한다 */
+export const FONT = '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+
 /** 달릴 수 있는 길의 절반 폭(m) */
 export const ROAD_HALF = 3.7;
 

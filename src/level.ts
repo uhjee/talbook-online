@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, STAGES, stagePos } from './config';
+import { CHECKPOINTS, COURSE_LEN, FONT, STAGES, stagePos } from './config';
 import {
   Barrier, Bear, Cart, Crowd, Ctx, Dasher, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
@@ -490,7 +490,7 @@ function mineDecor(put: Put): void {
     g.fillStyle = '#7a1f1f';
     g.fillRect(0, 0, w, h);
     g.fillStyle = '#ffe9a8';
-    g.font = `bold ${h * 0.16}px sans-serif`;
+    g.font = `bold ${h * 0.16}px ${FONT}`;
     g.textAlign = 'center';
     g.fillText('이달의 모범 일꾼', w / 2, h * 0.2);
     // 사진 여섯 장이 전부 같은 얼굴이다.
@@ -506,7 +506,7 @@ function mineDecor(put: Put): void {
       g.fillRect(fx + h * 0.025, fy - h * 0.02, h * 0.025, h * 0.025);
       g.fillRect(fx - h * 0.04, fy + h * 0.04, h * 0.08, h * 0.012);
     }
-  }, 2.8, 1.9);
+  }, 2.8, 1.9, '이달의 모범 일꾼');
   put(board, -4.3, stagePos('mine', 0.45), 0.35).position.y = 0.9;
   put(makeSign('출구\n(없음)', 1.6, 1.1, '#1e7a3c', '#ffffff', 1.8), 4.1, end - 14, -0.3);
   // 곡괭이가 없어 숟가락으로 벽을 파는 동료

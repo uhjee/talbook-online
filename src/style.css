@@ -7,8 +7,10 @@
   --red: #d8392f;
   --mute: #666a78;
   --line: 2.5px;
-  --display: 'Jua', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --body: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  /* 글꼴은 Pretendard 하나로 통일한다. 제목과 대사는 굵기로만 구분한다. config.ts의 FONT와 같아야 한다. */
+  --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --display: var(--font);
+  --body: var(--font);
 }
 * {
   box-sizing: border-box;
@@ -67,6 +69,7 @@ body {
 }
 #stage {
   font-family: var(--display);
+  font-weight: 800;
   font-size: 17px;
 }
 #stage::before {
@@ -140,6 +143,7 @@ body {
   background: var(--paper);
   box-shadow: 0 4px 0 var(--ink);
   font-family: var(--display);
+  font-weight: 800;
   font-size: 21px;
   line-height: 1.3;
   text-align: center;
@@ -175,6 +179,7 @@ body {
   box-shadow: 0 3px 0 var(--ink);
   color: #fff;
   font-family: var(--display);
+  font-weight: 800;
   font-size: 16px;
   text-align: center;
   white-space: nowrap;
@@ -295,6 +300,7 @@ body {
 #shout .say span {
   display: block;
   font-family: var(--display);
+  font-weight: 800;
   font-size: 23px;
   line-height: 1.25;
   white-space: pre;
@@ -382,6 +388,7 @@ body {
 #keys .k em {
   margin-left: 4px;
   font-family: var(--display);
+  font-weight: 800;
   font-style: normal;
   font-size: 15px;
   white-space: nowrap;
@@ -585,7 +592,7 @@ h1 {
   margin: 0 0 14px;
   font-family: var(--display);
   font-size: clamp(40px, 14vw, 58px);
-  font-weight: 400;
+  font-weight: 900;
   line-height: 1.05;
   color: var(--yellow);
   -webkit-text-stroke: 7px var(--ink);
@@ -596,7 +603,7 @@ h2 {
   margin: 0 0 4px;
   font-family: var(--display);
   font-size: 36px;
-  font-weight: 400;
+  font-weight: 900;
   line-height: 1.1;
 }
 h2.fail {
@@ -650,6 +657,7 @@ h2.fail {
 .rank {
   margin: 0 0 10px;
   font-family: var(--display);
+  font-weight: 800;
   font-size: 21px;
 }
 .badge {
@@ -660,6 +668,7 @@ h2.fail {
   background: var(--ink);
   color: var(--yellow);
   font-family: var(--display);
+  font-weight: 800;
   font-size: 19px;
 }
 .error {
@@ -706,6 +715,7 @@ button {
   background: #fff;
   box-shadow: 0 4px 0 var(--ink);
   font-family: var(--display);
+  font-weight: 800;
   font-size: 19px;
   cursor: pointer;
   transition: transform 0.05s, box-shadow 0.05s;
@@ -774,6 +784,7 @@ button:disabled {
   border-radius: 50%;
   background: var(--paper-2);
   font-family: var(--display);
+  font-weight: 800;
 }
 #rank-list li:nth-child(1) span:first-child {
   background: var(--yellow);
