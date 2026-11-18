@@ -337,7 +337,9 @@ export function makeBubble(text: string): THREE.Mesh {
       g.textBaseline = 'middle';
       lines.forEach((l, i) => g.fillText(l, cx, pad + bh / 2 + (i - (lines.length - 1) / 2) * size * 1.18));
     });
-    material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    // 외곽선은 깊이 그림을 보고 그리므로, 말풍선이 깊이를 남기지 않으면 뒤에 있는 물체의 외곽선이 말풍선 위로 비친다.
+    // 말풍선 모양 안쪽만 깊이를 남기도록 투명한 바깥쪽은 잘라 낸다.
+    material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
     material.userData.shared = true;
     bubbleMats.set(text, material);
   }
