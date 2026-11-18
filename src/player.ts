@@ -1,12 +1,11 @@
 import * as THREE from 'three';
-import { BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, HIDE_RATE, ROAD_HALF, SIDE_SPEED, SLIDE_MULT, SPEED_BASE, SPEED_MAX } from './config';
+import {
+  BOOST_AFTER, BOOST_MULT, BOOST_TIME, FALL_RATE, GRAVITY, HIDE_RATE, JUMP_V, ROAD_HALF, SIDE_SPEED, SLIDE_MULT, SLIDE_TIME, SPEED_BASE,
+  SPEED_MAX,
+} from './config';
 import { Input } from './input';
 import { crawlPerson, HERO_SKIN, makePerson, setHeroWear, swingPerson } from './models';
 import { castShadows } from './world';
-
-const GRAVITY = 22;
-const JUMP_V = 7.6;
-const SLIDE_TIME = 0.5;
 
 export class Player {
   group = new THREE.Group();

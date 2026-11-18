@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { CHECKPOINTS, COURSE_LEN, STAGES, stagePos } from './config';
 import {
-  Barrier, Bear, Cart, Crowd, Ctx, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
+  Barrier, Bear, Cart, Crowd, Ctx, Dasher, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
 } from './entities';
 import { box, makeCutout, makeDeer, makePerson, makeSign, mat, PersonOpts } from './models';
 import { hasProps } from './props';
 import { buildScenery } from './scenery';
+import { ONE_JUMP, Plan, Zone } from './spacing';
 
 export interface Decor {
   /** 생활관 문의 경첩 관절. y축으로 돌리면 문이 열린다 */
@@ -16,6 +17,8 @@ export interface Decor {
 }
 
 type Put = <T extends THREE.Object3D>(obj: T, x: number, d: number, ry?: number) => T;
+/** 패에서 한 장을 뽑는 함수. 점수 함수를 주면 점수가 가장 낮은 종류들 가운데에서 뽑는다 */
+type Pick<T extends string> = (score?: (kind: T) => number) => T;
 
 const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xd9a441, hatKind: 'helmet', face: 'calm' };
 /** 탄광을 지키는 간수 */
@@ -27,8 +30,8 @@ const NK_SOLDIER: PersonOpts = { shirt: 0x66783f, pants: 0x55662f, hat: 0x66783f
 export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
 const PAIR_GAP = 50;
-/** 감시자의 시야와 다음 감시자의 시야 사이에 비워 두는 거리(m) */
-const WATCH_GAP = 14;
+/** 붙잡는 사람 무리의 맨 앞사람부터 맨 뒷사람까지의 최대 거리(m). 양 끝 사람의 판정 여유(0.6m씩)와 한 프레임에 나아가는 거리를 빼고 점프 한 번에 다 넘어가는 깊이다 */
+const GROUP_DEPTH = ONE_JUMP - 1.8;
 
 /**
  * 같은 시드에서 항상 같은 순서의 난수를 만드는 함수를 반환한다.
@@ -52,13 +55,18 @@ function seeded(seed: number): () => number {
  * @author heojeehaeng(claude)
  * @param {Function} rnd 난수 함수
  * @param {Object} counts 종류 이름과 한 벌에 들어가는 장수
- * @return {Function} 종류 이름을 하나 뽑아 반환하는 함수
+ * @return {Function} 종류 이름을 하나 뽑아 반환하는 함수. 점수 함수를 주면 점수가 가장 낮은 종류들 가운데에서 뽑는다
  */
-function deck<T extends string>(rnd: () => number, counts: Record<T, number>): () => T {
+function deck<T extends string>(rnd: () => number, counts: Record<T, number>): Pick<T> {
   let bag: T[] = [];
-  return () => {
+  return (score) => {
     if (!bag.length) for (const k of Object.keys(counts) as T[]) for (let i = 0; i < counts[k]; i++) bag.push(k);
-    return bag.splice(Math.floor(rnd() * bag.length), 1)[0];
+    let idx = bag.map((_, i) => i);
+    if (score) {
+      const best = Math.min(...bag.map(score));
+      idx = idx.filter((i) => score(bag[i]) <= best + 0.01);
+    }
+    return bag.splice(idx[Math.floor(rnd() * idx.length)], 1)[0];
   };
 }
 
@@ -83,7 +91,7 @@ function clearOfCheckpoint(d: number): number {
  * @param {number} gapStart 범위 처음의 간격(m)
  * @param {number} gapEnd 범위 끝의 간격(m)
  * @param {Function} rnd 난수 함수
- * @param {Function} place 배치 함수 (거리, 진행도 0~1). 이 자리 뒤로 비워 둘 길이(m)를 반환한다
+ * @param {Function} place 배치 함수 (거리, 진행도 0~1). 이 거리(m)까지는 다음 자리를 건너뛰라는 값을 반환한다. 건너뛸 것이 없으면 0
  */
 function along(from: number, to: number, gapStart: number, gapEnd: number, rnd: () => number, place: (d: number, k: number) => number): void {
   const gapAt = (d: number) => gapStart + (gapEnd - gapStart) * ((d - from) / (to - from));
@@ -93,8 +101,77 @@ function along(from: number, to: number, gapStart: number, gapEnd: number, rnd: 
   for (const base of slots) {
     const d = clearOfCheckpoint(base + (rnd() - 0.5) * gapAt(base) * 0.6);
     if (d < skipUntil || d >= to) continue;
-    skipUntil = d + place(d, (base - from) / (to - from));
+    skipUntil = place(d, (base - from) / (to - from));
   }
+}
+
+/**
+ * 장애물이 앞뒤 장애물과 동작 간격을 지키는 가장 가까운 거리를 찾는다. 맞지 않으면 맞을 때까지 뒤로 민다.
+ * @author heojeehaeng(claude)
+ * @param {Plan} plan 구간에 놓인 구역 기록
+ * @param {number} d 놓으려는 거리(m)
+ * @param {number} limit 이 거리(m)부터는 놓지 않는다
+ * @param {Function} zones 거리를 받아 그 자리에서 차지할 구역들을 반환하는 함수
+ * @return {number} 놓을 수 있는 거리(m). 구간 안에 자리가 없으면 Infinity
+ */
+function fit(plan: Plan, d: number, limit: number, zones: (d: number) => Zone[]): number {
+  for (let i = 0; i < 10 && d < limit; i++) {
+    const more = plan.push(zones(d));
+    if (more === 0) return d;
+    // 밀어 놓은 자리가 체크포인트 앞이면 그 뒤로 한 번 더 민다.
+    d = clearOfCheckpoint(d + more + 0.01);
+  }
+  return Infinity;
+}
+
+/**
+ * 한 자리에 놓을 종류와 거리를 정하고 그 구역을 기록한다.
+ * 앞뒤 장애물과 동작 간격이 맞는 종류를 패에서 뽑고, 맞는 종류가 없으면 가장 조금 밀어도 되는 종류를 간격이 맞는 자리까지 뒤로 민다.
+ * 피할 수 없는 조합은 빼되 자리 수와 종류별 장수는 그대로 두기 위한 것이다.
+ * @author heojeehaeng(claude)
+ * @param {Plan} plan 구간에 놓인 구역 기록
+ * @param {Function} pick 패에서 한 장을 뽑는 함수
+ * @param {number} d 놓으려는 거리(m)
+ * @param {number} limit 이 거리(m)부터는 놓지 않는다
+ * @param {Function} zones 종류와 거리를 받아 그 자리에서 차지할 구역들을 반환하는 함수
+ * @return {Object|undefined} 정해진 종류와 거리. 구간 안에 자리가 없으면 undefined
+ */
+function settle<T extends string>(
+  plan: Plan, pick: Pick<T>, d: number, limit: number, zones: (kind: T, d: number) => Zone[],
+): { kind: T; d: number } | undefined {
+  const spot = new Map<T, number>();
+  const kind = pick((kd) => {
+    if (!spot.has(kd)) spot.set(kd, fit(plan, d, limit, (at) => zones(kd, at)));
+    return spot.get(kd)!;
+  });
+  const at = spot.get(kind)!;
+  if (at === Infinity) return undefined;
+  plan.claim(zones(kind, at));
+  return { kind, d: at };
+}
+
+/**
+ * 붙잡는 사람 무리에서 각 사람이 맨 앞사람보다 얼마나 뒤에 서는지 정한다.
+ * 무리 전체가 점프 한 번에 넘어가도록 정해진 깊이 안에 세운다. 그보다 벌어지면 내려서 다시 뛸 틈이 없어 뒷사람을 피할 수 없다.
+ * @author heojeehaeng(claude)
+ * @param {number} n 무리의 사람 수(1~3)
+ * @param {Function} rnd 난수 함수
+ * @return {number[]} 사람별로 맨 앞사람과의 거리(m). 첫 값은 0
+ */
+function groupOffsets(n: number, rnd: () => number): number[] {
+  if (n === 1) return [0];
+  if (n === 2) return [0, GROUP_DEPTH * (0.4 + rnd() * 0.6)];
+  return [0, GROUP_DEPTH * (0.3 + rnd() * 0.25), GROUP_DEPTH * (0.7 + rnd() * 0.3)];
+}
+
+/**
+ * 붙잡는 사람이 플레이어 쪽으로 걸어오는 속도를 정한다. 절반은 제자리에 서 있는다.
+ * @author heojeehaeng(claude)
+ * @param {Function} rnd 난수 함수
+ * @return {number} 걸어오는 속도(m/s). 서 있으면 0
+ */
+function pickWalk(rnd: () => number): number {
+  return rnd() < 0.5 ? 1.5 + rnd() * 3.5 : 0;
 }
 
 /**
@@ -106,10 +183,14 @@ function along(from: number, to: number, gapStart: number, gapEnd: number, rnd: 
  */
 export function buildEntities(c: Ctx, seed: number): Entity[] {
   const es: Entity[] = [];
-  mineEntities(c, es, seeded(seed + 1));
-  cityEntities(c, es, seeded(seed + 2));
-  dmzEntities(c, es, seeded(seed + 3));
-  ssEntities(c, es, seeded(seed + 4));
+  // 구간이 바뀌는 자리에서도 동작 간격을 지키도록 구역 기록은 네 구간이 함께 쓴다.
+  const plan = new Plan();
+  // 다음 구간 들머리의 철책은 앞 구간을 배치할 때 이미 알고 있어야 하므로 먼저 적어 둔다.
+  plan.claim([Barrier.zone(STAGES[2].from + 8, 'gap', 2.8), Barrier.zone(STAGES[3].from + 7, 'gap', 2.8)]);
+  mineEntities(c, es, plan, seeded(seed + 1));
+  cityEntities(c, es, plan, seeded(seed + 2));
+  dmzEntities(c, es, plan, seeded(seed + 3));
+  ssEntities(c, es, plan, seeded(seed + 4));
   es.sort((a, b) => (a.order ?? 1) - (b.order ?? 1));
   return es;
 }
@@ -119,33 +200,45 @@ export function buildEntities(c: Ctx, seed: number): Entity[] {
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
+ * @param {Plan} plan 코스에 놓인 구역 기록
  * @param {Function} rnd 난수 함수
  */
-function mineEntities(c: Ctx, es: Entity[], rnd: () => number): void {
+function mineEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const end = STAGES[0].to;
   es.push(new Barrier(c, 100, 'low'));
   es.push(new Barrier(c, 185, 'high'));
+  plan.claim([Barrier.zone(100, 'low'), Barrier.zone(185, 'high')]);
   es.push(new Hint(262, '동료와 간수는 점프로 넘고, 광차와 떨어지는 돌은 피하세요'));
   const pick = deck(rnd, { grab: 3, cart: 2, low: 2, high: 2, rocks: 3 });
-  along(290, end - 12, 30, 15, rnd, (d, k) => {
-    const kind = pick();
+  const limit = end - 12;
+  along(290, limit, 30, 15, rnd, (base, k) => {
+    // 구역의 크기를 정하는 값(무리의 깊이와 걸음, 장애물의 폭)은 종류를 고르기 전에 정해 둔다.
+    const offs = groupOffsets(1 + (k > 0.3 ? 1 : 0) + (k > 0.65 ? 1 : 0), rnd);
+    const walk = pickWalk(rnd);
+    const full = rnd() < 0.5;
+    const got = settle(plan, pick, base, limit, (kind, d) => {
+      if (kind === 'grab') return [Grabber.zone(d, offs[offs.length - 1], walk)];
+      if (kind === 'low') return [Barrier.zone(d, 'low', full ? 8.6 : 4.8)];
+      if (kind === 'high') return [Barrier.zone(d, 'high')];
+      // 광차와 종유석은 옆으로 비키면 되므로 어디에나 놓을 수 있다.
+      return [];
+    });
+    if (!got) return 0;
+    const { kind, d } = got;
     const x = (rnd() * 2 - 1) * 3;
-    // 붙잡는 사람의 절반은 동료, 절반은 욕을 퍼붓는 간수다.
-    const miner = (dd: number, gx: number) => {
-      const guard = rnd() < 0.5;
-      const look = guard ? GUARD : { ...MINER, pot: rnd() < 0.5 };
-      es.push(new Grabber(c, dd, gx, look, guard ? pickTaunt() : '"동무, 어디 가오!"', 4.5 + k * 1.5, guard));
-    };
     if (kind === 'grab') {
-      // 여럿이 나올 때는 앞뒤와 좌우를 흩어 한 줄로 서지 않게 한다.
-      miner(d, x);
-      if (k > 0.3) miner(d + 3 + rnd() * 6, (rnd() * 2 - 1) * 3.2);
-      if (k > 0.65) miner(d + 8 + rnd() * 6, (rnd() * 2 - 1) * 3.2);
+      // 여럿이 나올 때는 좌우를 흩어 한 줄로 서지 않게 한다. 붙잡는 사람의 절반은 동료, 절반은 욕을 퍼붓는 간수다.
+      offs.forEach((off, i) => {
+        const guard = rnd() < 0.5;
+        const look = guard ? GUARD : { ...MINER, pot: rnd() < 0.5 };
+        const gx = i ? (rnd() * 2 - 1) * 3.2 : x;
+        es.push(new Grabber(c, d + off, gx, look, guard ? pickTaunt() : '"동무, 어디 가오!"', 4.5 + k * 1.5, guard, walk));
+      });
     } else if (kind === 'cart') {
       es.push(new Cart(c, d + 35, [-2, 0, 2][Math.floor(rnd() * 3)]));
       if (k > 0.5) es.push(new Cart(c, d + 48, [-2, 0, 2][Math.floor(rnd() * 3)]));
     } else if (kind === 'low') {
-      es.push(rnd() < 0.5 ? new Barrier(c, d, 'low') : new Barrier(c, d, 'low', x < 0 ? -1.9 : 1.9, 4.8));
+      es.push(full ? new Barrier(c, d, 'low') : new Barrier(c, d, 'low', x < 0 ? -1.9 : 1.9, 4.8));
     } else if (kind === 'high') {
       es.push(new Barrier(c, d, 'high'));
     } else {
@@ -167,49 +260,51 @@ function mineEntities(c: Ctx, es: Entity[], rnd: () => number): void {
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
+ * @param {Plan} plan 코스에 놓인 구역 기록
  * @param {Function} rnd 난수 함수
  */
-function cityEntities(c: Ctx, es: Entity[], rnd: () => number): void {
+function cityEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const { from, to } = STAGES[1];
   es.push(new Hint(from + 6, '붉은 시야에 닿으면 바로 발각! 아래 방향키를 꾹 눌러(화면 길게 누르기) 기어가면 들키지 않습니다'));
-  // 감시자의 시야가 닿는 마지막 거리. 다음 감시자는 이 뒤로 숨 돌릴 틈을 두고 세운다.
-  let watchEnd = 0;
-  /**
-   * 감시자를 세운다. 앞선 감시자의 시야와 겹치면 겹치지 않는 자리까지 뒤로 민다.
-   * @author heojeehaeng(claude)
-   * @param {number} d 세우려는 거리(m)
-   * @param {number} side -1이면 길 왼쪽, 1이면 오른쪽
-   * @param {number} range 시야 거리(m)
-   * @param {number} rate 고개 돌리는 빠르기(rad/s)
-   * @return {number} 이 감시자의 시야가 끝나는 거리(m)
-   */
-  const watch = (d: number, side: number, range: number, rate: number): number => {
-    const at = clearOfCheckpoint(Math.max(d, watchEnd + range + WATCH_GAP));
+  const watch = (at: number, side: number, range: number, rate: number) =>
     es.push(new Watcher(c, at, side, rnd() * 6, range, rate, pickTaunt()));
-    watchEnd = at + range;
-    return watchEnd;
-  };
   watch(from + 80, -1, 10, 1.3);
   es.push(new Hint(from + 115, '행진 대열에 섞이면 들키지 않습니다'));
   es.push(new Hint(from + 200, '붙잡는 공산당원은 점프로 넘으세요'));
   es.push(new Crowd(c, from + 150, from + 182, 0));
   watch(from + 166, 1, 10, 1.3);
+  plan.claim([Watcher.zone(from + 80, 10), Crowd.zone(from + 150, from + 182)]);
   es.push(new Truck(c, from + 36, -8.4, to - 20));
   let side = 1;
   const pick = deck(rnd, { watch: 3, grab: 3, shoot: 2, low: 1, high: 1, crowd: 1, combo: 1 });
-  along(from + 225, to - 25, 33, 19, rnd, (d, k) => {
-    const kind = pick();
+  const limit = to - 25;
+  along(from + 225, limit, 33, 19, rnd, (base, k) => {
     side = -side;
+    // 구역의 크기를 정하는 값(무리의 깊이와 걸음, 감시자의 시야 거리)은 종류를 고르기 전에 정해 둔다.
+    const offs = groupOffsets(1 + (k > 0.3 ? 1 : 0) + (k > 0.7 ? 1 : 0), rnd);
+    const walk = pickWalk(rnd);
+    const range = 10 + rnd() * 2.5;
+    const got = settle(plan, pick, base, limit, (kind, d) => {
+      // 감시자 앞에서는 엎드려 있어 뛸 수 없으므로, 붙잡는 사람은 시야가 닿는 구역과 떨어져 있어야 한다.
+      if (kind === 'watch') return [Watcher.zone(d, range)];
+      if (kind === 'crowd') return [Crowd.zone(d - 1, d + 27)];
+      if (kind === 'grab') return [Grabber.zone(d, offs[offs.length - 1], walk, Grabber.CRAWL_LAG)];
+      if (kind === 'combo') return [Grabber.zone(d + 6, 0, walk, Grabber.CRAWL_LAG)];
+      if (kind === 'low') return [Barrier.zone(d, 'low', 5)];
+      if (kind === 'high') return [Barrier.zone(d, 'high')];
+      return [];
+    });
+    if (!got) return 0;
+    const { kind, d } = got;
     const x = (rnd() * 2 - 1) * 3;
-    const grab = (dd: number, gx: number) => es.push(new Grabber(c, dd, gx, PARTY, pickTaunt(), 4.5 + k * 2, true));
+    const grab = (dd: number, gx: number) => es.push(new Grabber(c, dd, gx, PARTY, pickTaunt(), 4.5 + k * 2, true, walk));
     if (kind === 'watch') {
       // 감시자는 한 번에 한 명만 세우고, 시야가 끝난 뒤에 다음 적이 나오게 한다.
-      return watch(d, side, 10 + rnd() * 2.5, 1.2 + k * 0.9) - d + 4;
+      watch(d, side, range, 1.2 + k * 0.9);
+      return d + range + 4;
     }
     if (kind === 'grab') {
-      grab(d, x);
-      if (k > 0.3) grab(d + 3 + rnd() * 6, (rnd() * 2 - 1) * 3.2);
-      if (k > 0.7) grab(d + 8 + rnd() * 6, (rnd() * 2 - 1) * 3.2);
+      offs.forEach((off, i) => grab(d + off, i ? (rnd() * 2 - 1) * 3.2 : x));
       return 0;
     }
     if (kind === 'shoot') {
@@ -226,9 +321,9 @@ function cityEntities(c: Ctx, es: Entity[], rnd: () => number): void {
     }
     if (kind === 'crowd') {
       // 행진 대열 옆의 감시자도 한 명만 세운다. 시야가 대열 길이 안에 들어오도록 대열을 감시자에 맞춰 놓는다.
-      const end = watch(d + 15, side, 10, 1.4);
-      es.push(new Crowd(c, end - 26, end + 2, rnd() < 0.5 ? -0.8 : 0.8));
-      return end - d + 6;
+      watch(d + 15, side, 10, 1.4);
+      es.push(new Crowd(c, d - 1, d + 27, rnd() < 0.5 ? -0.8 : 0.8));
+      return d + 31;
     }
     es.push(new Shooter(c, d, side, PARTY_GUN, 1.3, pickTaunt()));
     grab(d + 6, x);
@@ -241,9 +336,10 @@ function cityEntities(c: Ctx, es: Entity[], rnd: () => number): void {
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
+ * @param {Plan} plan 코스에 놓인 구역 기록
  * @param {Function} rnd 난수 함수
  */
-function dmzEntities(c: Ctx, es: Entity[], rnd: () => number): void {
+function dmzEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const { from, to } = STAGES[2];
   es.push(new Barrier(c, from + 8, 'gap', -1.5, 2.8));
   es.push(new Hint(from + 14, '붉은 조준선이 보이면 옆으로 피하거나 슬라이드!'));
@@ -258,10 +354,20 @@ function dmzEntities(c: Ctx, es: Entity[], rnd: () => number): void {
   // 동물과 통나무가 놓인 자리. 그 앞뒤에는 지뢰를 두지 않아 피할 길을 남긴다.
   const busy: number[] = [];
   const pick = deck(rnd, { bear: 2, tiger: 2, giraffe: 2, deer: 3, log: 1, giant: 1 });
-  along(from + 185, to - 25, 52, 30, rnd, (d, k) => {
-    let kind = pick();
+  const limit = to - 25;
+  along(from + 185, limit, 52, 30, rnd, (base, k) => {
+    const got = settle(plan, pick, base, limit, (kind, d) => {
+      // 호랑이가 돌아다니는 구역에서는 언제든 뛰어야 하므로, 슬라이드로 지나야 하는 곰과 기린은 그 구역과 떨어져 있어야 한다.
+      if (kind === 'bear') return [Bear.zone(d)];
+      if (kind === 'tiger') return [Dasher.zone(d)];
+      if (kind === 'giraffe') return [Giraffe.zone(d)];
+      if (kind === 'log') return [Barrier.zone(d, 'low', 4.6)];
+      return [];
+    });
+    if (!got) return 0;
+    const d = got.d;
     // 거인은 구간 앞쪽에서는 나오지 않는다.
-    if (kind === 'giant' && k < 0.2) kind = 'deer';
+    const kind = got.kind === 'giant' && k < 0.2 ? 'deer' : got.kind;
     busy.push(d);
     if (kind === 'bear') es.push(new Bear(c, d, (rnd() * 2 - 1) * 2));
     else if (kind === 'tiger') es.push(makeTigerEnemy(c, d));
@@ -290,27 +396,44 @@ function dmzEntities(c: Ctx, es: Entity[], rnd: () => number): void {
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
+ * @param {Plan} plan 코스에 놓인 구역 기록
  * @param {Function} rnd 난수 함수
  */
-function ssEntities(c: Ctx, es: Entity[], rnd: () => number): void {
+function ssEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const { from, to } = STAGES[3];
   es.push(new Barrier(c, from + 7, 'gap', 1.5, 2.8));
   es.push(new Hint(from + 12, '탐조등 빛에 닿으면 바로 발각! 빛이 지나간 뒤 달리세요'));
   let side = 1;
   let lastFence = from;
-  const pick = deck(rnd, { light: 3, phone: 2, cat: 2, boar: 2, limo: 2, ldance: 2, mascot: 1, fence: 1 });
-  along(from + 55, to - 34, 21, 11, rnd, (d, k) => {
-    let kind = pick();
+  type Kind = 'light' | 'phone' | 'cat' | 'boar' | 'limo' | 'ldance' | 'mascot' | 'fence';
+  const pick = deck<Kind>(rnd, { light: 3, phone: 2, cat: 2, boar: 2, limo: 2, ldance: 2, mascot: 1, fence: 1 });
+  const limit = to - 34;
+  along(from + 55, limit, 21, 11, rnd, (base, k) => {
     side = -side;
+    const pair = k > 0.4;
     // 철책은 너무 붙어 나오지 않게 하고, 그 자리에는 고양이를 대신 둔다.
-    if (kind === 'fence' && d - lastFence < 90) kind = 'cat';
-    if (kind === 'light') {
-      es.push(new Searchlight(c, d, side, rnd() * 6, 1.0 + k * 0.6 + rnd() * 0.2));
-      return 5;
-    }
-    if (kind === 'phone') {
+    const real = (kind: Kind): Kind => (kind === 'fence' && base - lastFence < 90 ? 'cat' : kind);
+    const got = settle(plan, pick, base, limit, (kd, d) => {
+      const kind = real(kd);
+      // 길을 쓸고 다니는 것과 지나갈 쪽이 정해진 것이 한자리에 겹치면 지나갈 틈이 없어지므로 서로 떨어뜨린다.
+      if (kind === 'light') return [Searchlight.zone(d)];
+      // 둘이 나올 때는 앞사람부터 뒷사람까지를 한 구역으로 잡는다.
+      if (kind === 'phone') return [{ ...PhoneWalker.zone(d + 30), to: PhoneWalker.zone(d + (pair ? 37 : 30)).to }];
+      if (kind === 'cat') return [Dasher.zone(d)];
+      if (kind === 'limo') return [Limo.zone(d + 90)];
+      if (kind === 'mascot') return [Mascot.zone(d + 35)];
+      if (kind === 'ldance') return [LDancer.zone(d + 30)];
+      if (kind === 'fence') return [Barrier.zone(d, 'gap', 2.8)];
+      // 멧돼지는 옆으로 비키거나 뛰어넘으면 되므로 어디에나 놓을 수 있다.
+      return [];
+    });
+    if (!got) return 0;
+    const kind = real(got.kind);
+    const d = got.d;
+    if (kind === 'light') es.push(new Searchlight(c, d, side, rnd() * 6, 1.0 + k * 0.6 + rnd() * 0.2));
+    else if (kind === 'phone') {
       es.push(new PhoneWalker(c, d + 30, 1.5 + rnd() * 1.8));
-      if (k > 0.4) es.push(new PhoneWalker(c, d + 37, 1.5 + rnd() * 1.8));
+      if (pair) es.push(new PhoneWalker(c, d + 37, 1.5 + rnd() * 1.8));
     } else if (kind === 'cat') es.push(makeCatEnemy(c, d));
     else if (kind === 'boar') {
       es.push(makeBoarEnemy(c, d + 45, (rnd() * 2 - 1) * 3.4));

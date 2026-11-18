@@ -6,6 +6,7 @@ import {
   PersonOpts, runQuad, swingPerson, textTexture,
 } from './models';
 import { Player } from './player';
+import { meet, Zone } from './spacing';
 
 /** 적과 장애물이 게임에 접근할 때 쓰는 창구 */
 export interface Ctx {
@@ -123,6 +124,20 @@ export class Barrier implements Entity {
     }
     g.position.z = -d;
     c.add(g, d);
+  }
+
+  /**
+   * 장애물이 차지하는 동작 구역을 반환한다.
+   * 길을 다 막은 낮은 장애물은 점프, 들보는 몸 낮추기, 철책 구멍과 한쪽만 막은 장애물은 지나갈 쪽이 정해진 구역이다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 놓을 거리(m)
+   * @param {string} kind low(점프), high(슬라이드), gap(구멍 통과)
+   * @param {number} w 장애물 폭 또는 구멍 폭(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number, kind: 'low' | 'high' | 'gap', w = 8.6): Zone {
+    const need = kind === 'high' ? 'low' : kind === 'low' && w > 8 ? 'jump' : 'lane';
+    return { from: d - 0.4, to: d + 0.4, need };
   }
 
   update(_dt: number, c: Ctx): void {
@@ -269,12 +284,30 @@ export class Grabber implements Entity {
   private bias = rand(-1.5, 1.5);
   /** 플레이어를 알아채는 거리(m) */
   private react = rand(16, 38);
-  /** 플레이어 쪽으로 걸어오는 속도(m/s). 절반은 제자리에 서 있는다 */
-  private walk = Math.random() < 0.5 ? rand(1.5, 5) : 0;
+  /** 플레이어 쪽으로 걸어오는 속도(m/s) */
+  private walk: number;
   private phase = rand(0, 6);
   private rate = rand(2.2, 4.2);
   /** 점프로 넘으려면 발이 이 높이(m)보다 높아야 한다. 점프 한 번에 약 0.5초 동안 넘겨 있다 */
   static CLEAR = 0.6;
+  /** 플레이어가 이 거리(m) 안으로 오면 걸어오기 시작한다 */
+  static WALK_FROM = 70;
+  /** 플레이어가 감시자 앞을 기어서 지나느라 늦어지는 동안 더 걸어 나오는 거리의 여유(m). 시내에서만 쓴다 */
+  static CRAWL_LAG = 3.5;
+
+  /**
+   * 붙잡는 사람 한 명 또는 한 무리가 차지하는 점프 구역을 반환한다.
+   * 걸어오는 사람은 플레이어의 속도에 따라 만나는 자리가 달라지므로 그 범위를 다 덮는다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 맨 앞사람이 서 있는 거리(m)
+   * @param {number} depth 맨 앞사람부터 맨 뒷사람까지의 거리(m)
+   * @param {number} walk 걸어오는 속도(m/s)
+   * @param {number} lag 앞쪽에 더 두는 여유(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number, depth: number, walk: number, lag = 0): Zone {
+    return { from: meet(d, walk, Grabber.WALK_FROM)[0] - 0.6 - lag, to: meet(d + depth, walk, Grabber.WALK_FROM)[1] + 0.6, need: 'jump' };
+  }
   private bubble?: THREE.Mesh;
   private said = false;
 
@@ -288,8 +321,12 @@ export class Grabber implements Entity {
    * @param {string} shout 붙잡았을 때 외치는 말
    * @param {number} chase 옆으로 따라붙는 기본 속도(m/s)
    * @param {boolean} taunt true면 가까이 왔을 때 외치는 말을 머리 위 말풍선으로도 보여 준다
+   * @param {number} walk 플레이어 쪽으로 걸어오는 속도(m/s). 0이면 제자리에 서 있는다. 무리 지어 선 사람들은 같은 값을 줘서 서로의 간격이 달라지지 않게 한다
    */
-  constructor(c: Ctx, public d: number, private x: number, look: PersonOpts, private shout: string, chase = 5, taunt = false) {
+  constructor(
+    c: Ctx, public d: number, private x: number, look: PersonOpts, private shout: string, chase = 5, taunt = false, walk = 0,
+  ) {
+    this.walk = walk;
     this.x0 = x;
     this.chase = chase * rand(0.7, 1.25);
     const r = Math.random();
@@ -310,7 +347,7 @@ export class Grabber implements Entity {
 
   update(dt: number, c: Ctx): void {
     const p = c.player;
-    if (this.walk && this.d - p.d < 70 && this.d - p.d > 2) this.d -= this.walk * dt;
+    if (this.walk && this.d - p.d < Grabber.WALK_FROM && this.d - p.d > 2) this.d -= this.walk * dt;
     const dd = this.d - p.d;
     if (this.bubble) {
       this.bubble.visible = dd < TAUNT_RANGE && dd > -2;
@@ -400,6 +437,17 @@ export class PhoneWalker implements Entity {
     c.add(this.g, d, true);
   }
 
+  /**
+   * 휴대폰 보는 군인과 마주치는 구역을 반환한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 처음 서 있는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    const [near, far] = meet(d, 2.2, 120);
+    return { from: near - 0.6, to: far + 0.6, need: 'sweep' };
+  }
+
   update(dt: number, c: Ctx): void {
     const p = c.player;
     // 앞을 보지 않으므로 플레이어를 따라오지 않고 제멋대로 비틀거리며 걸어온다.
@@ -449,6 +497,16 @@ export class LDancer implements Entity {
     this.g.position.set(cx, 0, -d);
     this.g.visible = false;
     c.add(this.g, d, true);
+  }
+
+  /**
+   * 춤추는 병사가 길을 쓸고 다니는 구역을 반환한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 춤추는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    return { from: d - 0.6, to: d + 0.6, need: 'sweep' };
   }
 
   update(_dt: number, c: Ctx): void {
@@ -506,6 +564,17 @@ export class Crowd implements Entity {
     }
   }
 
+  /**
+   * 행진 대열이 차지하는 구역을 반환한다. 옆의 감시자 때문에 대열에 섞이거나 기어서 지나야 하므로 감시자 시야와 같은 구역으로 본다.
+   * @author heojeehaeng(claude)
+   * @param {number} d0 대열이 시작되는 거리(m)
+   * @param {number} d1 대열이 끝나는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d0: number, d1: number): Zone {
+    return { from: d0, to: d1, need: 'crawl' };
+  }
+
   update(_dt: number, c: Ctx): void {
     const p = c.player;
     if (p.d > this.d0 && p.d < this.d1 && Math.abs(p.x - this.x) < 2.3) c.inCrowd = true;
@@ -556,6 +625,17 @@ export class Watcher implements Entity {
   static HALF = 0.4;
   private bubble?: THREE.Mesh;
   private said = false;
+
+  /**
+   * 감시자의 시야가 길 위에 닿는 구역을 반환한다. 시야는 달려오는 쪽으로 시야 거리만큼, 지나간 쪽으로는 그 0.6배까지 닿는다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 서 있는 거리(m)
+   * @param {number} range 시야 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number, range: number): Zone {
+    return { from: d - range, to: d + range * 0.6, need: 'crawl' };
+  }
 
   update(_dt: number, c: Ctx): void {
     const p = c.player;
@@ -761,6 +841,18 @@ export class Bear implements Entity {
     c.add(this.g, d, true);
   }
 
+  /**
+   * 곰과 마주치는 구역을 반환한다. 곰은 가까워지면 덮쳐 오므로 서 있던 자리보다 앞에서 만난다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 서 있는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    const [near, far] = meet(d, 6, 22);
+    // 슬라이드로 빨라진 채 들어오면 조금 더 뒤에서 만나므로 뒤쪽 여유를 1m 더 둔다.
+    return { from: near - 1.6, to: far + 2.6, need: 'low' };
+  }
+
   update(dt: number, c: Ctx): void {
     const p = c.player;
     const dd = this.d - p.d;
@@ -844,6 +936,19 @@ export class Dasher implements Entity {
     c.add(this.g, d, true);
   }
 
+  /** 중심 거리에서 앞뒤로 돌아다니는 범위(m) */
+  static ROAM = 14;
+
+  /**
+   * 돌진하는 동물이 길을 가로지르며 돌아다니는 구역을 반환한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 가로지르는 중심 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    return { from: d - Dasher.ROAM - 1.5, to: d + Dasher.ROAM + 1.5, need: 'pounce' };
+  }
+
   /**
    * 다음에 달려갈 지점과 빠르기를 정한다.
    * 반대편까지 가로지르기, 길 가운데에서 꺾기, 왔던 쪽으로 되돌아가기를 무작위로 섞는다.
@@ -859,7 +964,7 @@ export class Dasher implements Entity {
     else if (r < 0.8) this.toX = rand(-3.4, 3.4);
     else this.toX = -far * rand(0.3, 1);
     // 플레이어가 지나갈 자리 근처를 가로지르도록 목표 거리를 플레이어 앞쪽으로 잡는다.
-    this.toD = Math.max(this.d - 14, Math.min(this.d + 14, pd + rand(3, 24)));
+    this.toD = Math.max(this.d - Dasher.ROAM, Math.min(this.d + Dasher.ROAM, pd + rand(3, 24)));
     this.legSpeed = this.speed * rand(0.85, 1.5);
     // 가끔 멈칫했다가 튀어 나가 박자를 읽기 어렵게 한다.
     this.pause = Math.random() < 0.25 ? rand(0.08, 0.22) : 0;
@@ -1070,6 +1175,16 @@ export class Giraffe implements Entity {
   /** 처음 만든 것보다 2.2배 빠르게 휘두른다 */
   static FAST = 2.2;
 
+  /**
+   * 기린의 목이 닿는 구역을 반환한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 서 있는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    return { from: d - Giraffe.LEN - 0.8, to: d + Giraffe.LEN + 0.8, need: 'low' };
+  }
+
   update(dt: number, c: Ctx): void {
     const p = c.player;
     const before = this.a;
@@ -1155,6 +1270,16 @@ export class Searchlight implements Entity {
   }
 
   static R = 1.9;
+
+  /**
+   * 탐조등 빛이 훑는 구역을 반환한다. 빛은 중심에서 앞뒤로 3m씩 오간다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 빛이 훑는 중심 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    return { from: d - 3 - Searchlight.R, to: d + 3 + Searchlight.R, need: 'sweep' };
+  }
 
   update(_dt: number, c: Ctx): void {
     const p = c.player;
@@ -1250,6 +1375,17 @@ export class Limo implements Entity {
 
   static SPEED = 30;
 
+  /**
+   * 장군 차와 마주치는 구역을 반환한다. 차가 길의 절반을 막으므로 나머지 절반으로만 지나갈 수 있다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 처음 서 있는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    const [near, far] = meet(d, Limo.SPEED, 170);
+    return { from: near - 5, to: far + 5, need: 'lane' };
+  }
+
   update(dt: number, c: Ctx): void {
     const p = c.player;
     const dd = this.d - p.d;
@@ -1286,6 +1422,17 @@ export class Mascot implements Entity {
     this.g.rotation.y = Math.PI;
     this.g.position.set(0, 0, -d);
     c.add(this.g, d, true);
+  }
+
+  /**
+   * 굳건이와 마주치는 구역을 반환한다.
+   * @author heojeehaeng(claude)
+   * @param {number} d 처음 서 있는 거리(m)
+   * @return {Zone} 동작 구역
+   */
+  static zone(d: number): Zone {
+    const [near, far] = meet(d, 5, 130);
+    return { from: near - 0.8, to: far + 0.8, need: 'sweep' };
   }
 
   update(dt: number, c: Ctx): void {

@@ -14,6 +14,11 @@ export const HIDE_RATE = 0.5;
 export const BOOST_TIME = 0.3;
 /** 슬라이드로 미끄러지는 동안의 속도 배율 */
 export const SLIDE_MULT = 1.3;
+/** 슬라이드 한 번의 지속 시간(초) */
+export const SLIDE_TIME = 0.5;
+/** 점프의 처음 속도(m/s)와 중력(m/s²). 한 번 뛰면 약 0.69초 동안 떠 있고 1.31m까지 오른다 */
+export const JUMP_V = 7.6;
+export const GRAVITY = 22;
 
 /** 넘어지는 동작과 지뢰로 날아가는 동작의 빠르기 배율 */
 export const FALL_RATE = 1.3;
