@@ -1429,24 +1429,64 @@ export function makeLimo(): THREE.Group {
   return g;
 }
 
+/** 굳건이의 엉덩이 높이(m). 리용길의 키보다 높아 서서는 지날 수 없고 몸을 낮춰야 다리 사이로 빠져나간다 */
+const MASCOT_HIP = 2.3;
+/** 굳건이가 벌려 디딘 발의 좌우 위치(m) */
+const MASCOT_FOOT = 1.25;
+
 /**
- * 엄지를 치켜든 육군 마스코트 '굳건이' 모델을 만든다.
+ * 엄지를 치켜든 육군 마스코트 '굳건이' 모델을 만든다. 다리가 아주 길고 넓게 벌어져 가랑이 사이가 문처럼 뚫려 있다. 얼굴은 +z 방향이다.
  * @author heojeehaeng(claude)
- * @return {THREE.Group} 마스코트 모델. 기본 방향은 -z이다
+ * @return {THREE.Group} 마스코트 모델. userData.legs에 긴 다리 관절이, userData.body에 윗몸이, userData.guide에 다리 사이로 이끄는 바닥 화살표가 들어 있다
  */
 export function makeMascot(): THREE.Group {
-  const g = makePerson({ shirt: 0x5c8a3c, pants: 0x5c8a3c, face: 'grin', hair: 0x111111 });
+  const g = new THREE.Group();
+  const green = 0x5c8a3c;
+  const body = makePerson({ shirt: green, pants: green, face: 'grin', hair: 0x111111, noShadow: true });
   // 얼룩무늬
   for (const [x, y, c] of [[-0.14, 0.95, 0x2f5a25], [0.12, 0.75, 0x3d3a22], [0.02, 1.08, 0x3d3a22], [-0.1, 0.68, 0x2f5a25]]) {
-    g.add(part(G.ballLow, c, [x, y, -0.21], [0.11, 0.08, 0.04]));
+    body.add(part(G.ballLow, c, [x, y, -0.21], [0.11, 0.08, 0.04]));
   }
   // 뾰족한 머리카락
-  for (let i = -2; i <= 2; i++) g.add(part(G.cone, 0x111111, [i * 0.15, 1.99 - Math.abs(i) * 0.04, -0.02], [0.1, 0.3, 0.1]));
+  for (let i = -2; i <= 2; i++) body.add(part(G.cone, 0x111111, [i * 0.15, 1.99 - Math.abs(i) * 0.04, -0.02], [0.1, 0.3, 0.1]));
   // 치켜든 엄지
-  const { armR } = g.userData.parts;
+  const { armR, legL, legR } = body.userData.parts;
   armR.rotation.x = 1.5;
   armR.add(part(G.ballLow, 0xf3cfae, [0, -0.5, 0.12], [0.045, 0.045, 0.1]));
-  g.scale.setScalar(1.45);
+  // 원래의 짧은 다리는 떼어 내고 아래에서 긴 다리를 따로 붙인다.
+  body.remove(legL, legR);
+  const scale = 1.45;
+  body.scale.setScalar(scale);
+  body.rotation.y = Math.PI;
+  // 사람 모델의 엉덩이 높이(0.5)가 긴 다리의 엉덩이 높이에 오도록 윗몸을 들어 올린다.
+  body.position.y = MASCOT_HIP - 0.5 * scale;
+  const hipX = 0.135 * scale;
+  const spread = Math.atan2(MASCOT_FOOT - hipX, MASCOT_HIP);
+  const len = Math.hypot(MASCOT_FOOT - hipX, MASCOT_HIP) - 0.12;
+  const legs: THREE.Group[] = [];
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(s * hipX, MASCOT_HIP, 0);
+    leg.rotation.z = s * spread;
+    leg.add(pill(green, 0.15, len + 0.15, [0, -len / 2, 0]));
+    // 긴 다리에도 얼룩무늬를 띄엄띄엄 둘러 전투복으로 보이게 한다.
+    [0.2, 0.42, 0.63].forEach((k, i) => leg.add(part(G.tube, i % 2 ? 0x3d3a22 : 0x2f5a25, [0, -len * k, 0], [0.156, 0.2, 0.156])));
+    // 다리가 기울어도 군화는 바닥에 평평하게 놓이도록 반대로 돌려 둔다.
+    const boot = new THREE.Group();
+    boot.position.y = -len;
+    boot.rotation.z = -s * spread;
+    boot.add(part(G.tube, SHOE, [0, 0.2, 0], [0.17, 0.42, 0.17]), part(G.ball, SHOE, [0, 0.02, 0.1], [0.2, 0.13, 0.32]));
+    leg.add(boot);
+    legs.push(leg);
+    g.add(leg);
+  }
+  const guide = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3.2), bearGuideMat());
+  guide.rotation.x = -Math.PI / 2;
+  guide.position.set(0, 0.045, 1.7);
+  g.add(body, guide, blob(1.5, 0.6));
+  g.userData.legs = legs;
+  g.userData.body = body;
+  g.userData.guide = guide;
   return g;
 }
 

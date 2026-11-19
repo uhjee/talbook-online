@@ -10,7 +10,8 @@ export const ROAD_HALF = 3.7;
 
 export const SPEED_BASE = 20.8;
 export const SPEED_MAX = 26;
-export const SIDE_SPEED = 14;
+/** 좌우 키를 누르고 있는 동안 옆으로 움직이는 속도(m/s) */
+export const SIDE_SPEED = 16;
 /** 넘어지지 않고 이 시간(초)을 달리면 최고 속도가 된다 */
 export const BOOST_AFTER = 10;
 

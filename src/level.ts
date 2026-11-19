@@ -26,7 +26,6 @@ const MINER: PersonOpts = { shirt: 0x8a765c, pants: 0x4a4038, hat: 0xe3b23c, hat
 const GUARD: PersonOpts = { shirt: 0x2c303c, pants: 0x23262f, hat: 0x23262f, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
 const PARTY: PersonOpts = { shirt: 0x342f47, pants: 0x2a2639, hat: 0x342f47, face: 'angry', armband: 0xc0261c, badge: 0xc0261c };
 const PARTY_GUN: PersonOpts = { shirt: 0x6a3040, pants: 0x2a2639, hat: 0x6a3040, face: 'angry', armband: 0xc0261c, badge: 0xf0c020 };
-const NK_SOLDIER: PersonOpts = { shirt: 0xc9b068, pants: 0xa8924f, hat: 0xc9b068, hatKind: 'officer', boots: true, face: 'angry', badge: 0xc0261c };
 /** 한국군 병사. 화강암 디지털 무늬 전투복과 전투모를 입는다. 색 값은 무늬가 안 쓰이는 허리띠와 모자 테에만 쓰인다 */
 export const ROK_SOLDIER: PersonOpts = { shirt: 0x5c6a44, pants: 0x4a5638, hat: 0x4a5638, camo: true, boots: true };
 /** 달려오는 동물이 두 마리일 때 둘 사이의 거리(m). 서로 약 1초 간격으로 도착한다 */
@@ -271,7 +270,7 @@ function cityEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void
     es.push(new Watcher(c, at, side, rnd() * 6, range, rate, pickTaunt()));
   watch(from + 80, -1, 10, 1.3);
   es.push(new Hint(from + 115, '행진 대열에 섞이면 들키지 않습니다'));
-  es.push(new Hint(from + 200, '붙잡는 공산당원은 점프로 넘으세요'));
+  es.push(new Hint(from + 200, '붙잡는 공산당원은 점프! 붉은 표적이 조여들면 옆으로 비키거나 슬라이드!'));
   es.push(new Crowd(c, from + 150, from + 182, 0));
   watch(from + 166, 1, 10, 1.3);
   plan.claim([Watcher.zone(from + 80, 10), Crowd.zone(from + 150, from + 182)]);
@@ -333,7 +332,7 @@ function cityEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void
 }
 
 /**
- * 국경과 DMZ의 적을 배치한다. 북한군, 지뢰, 곰, 호랑이, 기린, 고라니, 거인이 나온다.
+ * 국경과 DMZ의 적을 배치한다. 지뢰, 곰, 호랑이, 기린, 고라니, 거인이 나온다.
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {Entity[]} es 적 목록
@@ -343,15 +342,8 @@ function cityEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void
 function dmzEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const { from, to } = STAGES[2];
   es.push(new Barrier(c, from + 8, 'gap', -1.5, 2.8));
-  es.push(new Hint(from + 14, '붉은 조준선이 보이면 옆으로 피하거나 슬라이드!'));
   es.push(new Hint(from + 80, '볼록한 흙더미는 지뢰! 피하거나 점프로 넘으세요'));
-  es.push(new Hint(from + 150, '곰은 다리 사이로 슬라이드! 기린도 슬라이드, 호랑이는 점프, 고라니는 옆으로'));
-  let side = 1;
-  along(from + 45, to - 30, 66, 46, rnd, (d, k) => {
-    side = -side;
-    es.push(new Shooter(c, d, side, NK_SOLDIER, 1.4 - k * 0.5));
-    return 0;
-  });
+  es.push(new Hint(from + 150, '곰은 다리 사이로 슬라이드! 기린도 슬라이드, 호랑이와 고라니는 점프'));
   // 동물과 통나무가 놓인 자리. 그 앞뒤에는 지뢰를 두지 않아 피할 길을 남긴다.
   const busy: number[] = [];
   const pick = deck(rnd, { bear: 2, tiger: 2, giraffe: 2, deer: 3, log: 1, giant: 1 });
@@ -404,6 +396,7 @@ function ssEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
   const { from, to } = STAGES[3];
   es.push(new Barrier(c, from + 7, 'gap', 1.5, 2.8));
   es.push(new Hint(from + 12, '탐조등 빛에 닿으면 바로 발각! 빛이 지나간 뒤 달리세요'));
+  es.push(new Hint(from + 80, '굳건이는 긴 다리 사이로 슬라이드! 고양이와 멧돼지는 점프'));
   let side = 1;
   let lastFence = from;
   type Kind = 'light' | 'phone' | 'cat' | 'boar' | 'limo' | 'ldance' | 'mascot' | 'fence';
@@ -425,7 +418,7 @@ function ssEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
       if (kind === 'mascot') return [Mascot.zone(d + 35)];
       if (kind === 'ldance') return [LDancer.zone(d + 30)];
       if (kind === 'fence') return [Barrier.zone(d, 'gap', 2.8)];
-      // 멧돼지는 옆으로 비키거나 뛰어넘으면 되므로 어디에나 놓을 수 있다.
+      // 멧돼지는 옆으로 비키거나 뛰어넘으면 되므로 어디에나 놓을 수 있다. 굳건이는 곰처럼 몸을 낮춰 지나므로 고양이 구역과 떨어뜨린다.
       return [];
     });
     if (!got) return 0;
@@ -440,7 +433,7 @@ function ssEntities(c: Ctx, es: Entity[], plan: Plan, rnd: () => number): void {
       es.push(makeBoarEnemy(c, d + 45, (rnd() * 2 - 1) * 3.4));
       if (k > 0.5) es.push(makeBoarEnemy(c, d + 45 + PAIR_GAP, (rnd() * 2 - 1) * 3.4));
     } else if (kind === 'limo') es.push(new Limo(c, d + 90, rnd() < 0.5 ? -1.9 : 1.9));
-    else if (kind === 'mascot') es.push(new Mascot(c, d + 35));
+    else if (kind === 'mascot') es.push(new Mascot(c, d + 35, (rnd() * 2 - 1) * 2));
     else if (kind === 'ldance') es.push(new LDancer(c, d + 30, (rnd() * 2 - 1) * 1.0, 1.8 + rnd() * 0.8, 2.8 + rnd() * 0.8));
     else {
       lastFence = d;

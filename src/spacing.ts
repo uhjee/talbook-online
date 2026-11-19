@@ -4,11 +4,11 @@ import { GRAVITY, JUMP_V, SIDE_SPEED, SLIDE_MULT, SPEED_BASE, SPEED_MAX } from '
  * 장애물이 리용길에게 요구하는 동작.
  * - jump: 정해진 자리에서 점프한다 (길을 다 막은 낮은 장애물, 붙잡는 사람)
  * - pounce: 구역 안에서 언제 덮칠지 몰라 그때그때 점프한다 (호랑이, 고양이)
- * - low: 슬라이드나 기어가기로 몸을 낮춘다 (들보, 곰, 기린)
+ * - low: 슬라이드나 기어가기로 몸을 낮춘다 (들보, 곰, 기린, 굳건이)
  * - crawl: 기어가기를 유지한다 (감시자 시야, 행진 대열)
  * - lane: 정해진 쪽으로만 지나갈 수 있다 (철책 구멍, 장군 차, 한쪽을 막은 장애물)
- * - sweep: 길을 좌우로 쓸고 다니는 것을 옆으로 피한다 (탐조등, 굳건이, 춤추는 병사, 휴대폰 보는 군인)
- * 옆으로 한 걸음만 비키면 되는 것(광차, 종유석, 지뢰, 고라니, 멧돼지, 조준선)은 다른 동작을 막지 않으므로 구역을 잡지 않는다.
+ * - sweep: 길을 좌우로 쓸고 다니는 것을 옆으로 피한다 (탐조등, 춤추는 병사, 휴대폰 보는 군인)
+ * 옆으로 한 걸음만 비키거나 제자리에서 뛰어넘으면 되는 것(광차, 종유석, 지뢰, 고라니, 멧돼지, 조준선)은 다른 동작을 막지 않으므로 구역을 잡지 않는다.
  */
 export type Need = 'jump' | 'pounce' | 'low' | 'crawl' | 'lane' | 'sweep';
 
@@ -26,8 +26,11 @@ export const SLACK = 0.2;
 const AIR = (2 * JUMP_V) / GRAVITY;
 /** 붙잡는 사람을 넘으려면 발이 올라가야 하는 높이(m). 낮은 장애물(0.45m)보다 높아 이 값을 기준으로 삼는다 */
 const CLEAR = 0.6;
-/** 호랑이를 넘으려면 발이 올라가야 하는 높이(m) */
-const CLEAR_POUNCE = 0.75;
+/**
+ * 동물(호랑이, 고양이, 고라니, 멧돼지)을 넘으려면 발이 올라가야 하는 높이(m).
+ * 동물은 빠르게 움직여 박자를 맞추기 어려우므로 붙잡는 사람보다 낮게 잡는다. 점프 한 번에 약 0.54초 동안 넘겨 있다.
+ */
+export const CLEAR_ANIMAL = 0.5;
 
 /**
  * 뛰어오른 뒤 발이 지정한 높이에 닿을 때까지 걸리는 시간을 반환한다.
@@ -62,9 +65,9 @@ const JUMP_TO_LOW = (AIR + 2 * SLACK - riseT(CLEAR) - overT(CLEAR)) * SPEED_MAX;
 /** 점프 → 기어가기. 공중에서 미리 누르고 있으면 내리자마자 엎드리므로 착지할 거리만 있으면 된다 */
 const JUMP_TO_CRAWL = (AIR + SLACK - riseT(CLEAR) - overT(CLEAR)) * SPEED_MAX;
 /** 덮치는 동물 구역 → 다음 동작. 구역 끝에서 덮치면 그때 뛰어야 하므로 한 번의 점프를 다 마칠 거리를 둔다 */
-const POUNCE_OUT = (AIR - riseT(CLEAR_POUNCE) + SLACK) * SPEED_MAX;
+const POUNCE_OUT = (AIR - riseT(CLEAR_ANIMAL) + SLACK) * SPEED_MAX;
 /** 몸 낮추기 → 점프. 슬라이드 중에 점프하면 바로 일어나 뛰지만, 슬라이드 동안은 1.3배로 빨리 다가간다 */
-const LOW_TO_JUMP = (SLACK + riseT(CLEAR_POUNCE)) * SPEED_MAX * SLIDE_MULT;
+const LOW_TO_JUMP = (SLACK + riseT(CLEAR_ANIMAL)) * SPEED_MAX * SLIDE_MULT;
 /** 기어가기 → 점프. 엎드린 채로는 뛸 수 없어 손을 떼고 뛴다. 일어난 직후라 기본 속도로 잰다 */
 const CRAWL_TO_JUMP = (SLACK + riseT(CLEAR)) * SPEED_BASE;
 /** 길을 쓸고 다니는 것 앞. 탐조등 빛의 반지름(1.9m)만큼 옆으로 비킬 시간을 둔다 */

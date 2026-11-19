@@ -6,7 +6,7 @@ import {
   PersonOpts, runQuad, swingPerson, textTexture,
 } from './models';
 import { Player } from './player';
-import { meet, Zone } from './spacing';
+import { CLEAR_ANIMAL, meet, Zone } from './spacing';
 
 /** 적과 장애물이 게임에 접근할 때 쓰는 창구 */
 export interface Ctx {
@@ -294,6 +294,8 @@ export class Grabber implements Entity {
   static WALK_FROM = 70;
   /** 플레이어가 감시자 앞을 기어서 지나느라 늦어지는 동안 더 걸어 나오는 거리의 여유(m). 시내에서만 쓴다 */
   static CRAWL_LAG = 3.5;
+  /** 옆으로 움직이는 빠르기에 곱하는 배율. 따라붙기, 덮치기, 좌우로 오가기에 모두 적용한다 */
+  static SIDE_RATE = 0.9;
 
   /**
    * 붙잡는 사람 한 명 또는 한 무리가 차지하는 점프 구역을 반환한다.
@@ -372,7 +374,7 @@ export class Grabber implements Entity {
         speed = 7;
       }
       const gap = target - this.x;
-      this.x += Math.sign(gap) * Math.min(speed * dt, Math.abs(gap));
+      this.x += Math.sign(gap) * Math.min(speed * Grabber.SIDE_RATE * dt, Math.abs(gap));
       swingPerson(this.g, c.time * 14, 0.5);
     }
     this.g.position.set(this.x, 0, -this.d);
@@ -662,7 +664,10 @@ export class Watcher implements Entity {
   }
 }
 
-/** 붉은 조준선을 보여 준 뒤 총을 쏘는 사람 (DMZ의 북한군, 시내의 공산당원) */
+/**
+ * 붉은 조준선과 표적을 보여 준 뒤 총을 쏘는 사람 (시내의 공산당원).
+ * 조준선에 닿는 것만으로는 맞지 않고, 표적이 다 조여드는 순간 표적 안에 서 있으면 맞는다.
+ */
 export class Shooter implements Entity {
   private man: THREE.Group;
   private line: THREE.Mesh;
@@ -704,6 +709,10 @@ export class Shooter implements Entity {
   }
 
   static AIM = 0.9;
+  /** 쏘는 순간 표적 중심에서 좌우로 이 거리(m) 안에 있으면 맞는다. 표적 고리의 바깥 반지름과 같다 */
+  static HIT_X = 0.8;
+  /** 쏘는 순간 표적 중심에서 앞뒤로 이 거리(m) 안에 있으면 맞는다. 달리는 속도가 조금 달라져도 맞도록 좌우보다 길다 */
+  static HIT_D = 2.4;
   private bubble?: THREE.Mesh;
   private said = false;
 
@@ -731,11 +740,14 @@ export class Shooter implements Entity {
       return;
     }
     (this.line.material as THREE.MeshBasicMaterial).opacity = 0.5 + 0.4 * Math.sin(c.time * 30);
+    // 표적이 크게 떴다가 맞는 범위 크기로 조여들어, 다 조여드는 순간이 쏘는 순간임을 알린다.
+    const k = 1 + 1.2 * Math.max(0, this.t / Shooter.AIM);
+    this.ring.scale.set(k, k * Shooter.HIT_D / Shooter.HIT_X, 1);
     if (this.t > 0) return;
     this.aiming = false;
     this.t = this.cooldown;
     this.line.visible = this.ring.visible = false;
-    if (Math.abs(p.x - this.tx) < 0.8 && Math.abs(p.d - this.td) < 2.4 && !p.low && p.y < 1.2 && p.fall(FALL_HEAVY)) {
+    if (Math.abs(p.x - this.tx) < Shooter.HIT_X && Math.abs(p.d - this.td) < Shooter.HIT_D && !p.low && p.y < 1.2 && p.fall(FALL_HEAVY)) {
       c.toast('탕!');
       c.shake(0.3);
     }
@@ -896,7 +908,7 @@ export class Bear implements Entity {
   }
 }
 
-/** 울음소리를 낸 뒤 길을 이리저리 가로지르며 돌진하는 동물 (호랑이, 고양이) */
+/** 울음소리를 낸 뒤 길을 이리저리 가로지르며 돌진하는 동물 (호랑이, 고양이). 점프로 뛰어넘는다 */
 export class Dasher implements Entity {
   private state: 'wait' | 'roar' | 'run' | 'done' = 'wait';
   private t = 0;
@@ -910,6 +922,8 @@ export class Dasher implements Entity {
   private legs = 0;
   private legSpeed = 0;
   private pause = 0;
+  /** 플레이어가 점프로 한 번 뛰어넘었는지 여부 */
+  private jumped = false;
   private flyer?: THREE.Group;
 
   /**
@@ -920,13 +934,12 @@ export class Dasher implements Entity {
    * @param {THREE.Group} g 동물 모델. 머리는 +x 방향이어야 한다
    * @param {number} speed 달리는 기본 속도(m/s)
    * @param {number} reach 부딪히는 좌우 범위(m)
-   * @param {number} height 이 높이(m)보다 높이 뛰면 넘어간다
    * @param {string} cry 나타날 때 우는 소리
    * @param {string} hitMsg 부딪혔을 때 문구
    */
   constructor(
     c: Ctx, public d: number, private g: THREE.Group, private speed: number,
-    private reach: number, private height: number, private cry: string, private hitMsg: string,
+    private reach: number, private cry: string, private hitMsg: string,
   ) {
     this.flyer = g.userData.magpie;
     this.x = Math.random() < 0.5 ? -7.5 : 7.5;
@@ -938,6 +951,10 @@ export class Dasher implements Entity {
 
   /** 중심 거리에서 앞뒤로 돌아다니는 범위(m) */
   static ROAM = 14;
+  /** 공중에 떠 있는 동안 동물이 앞뒤로 이 거리(m) 안을 지나가면 뛰어넘은 것으로 본다. 부딪히는 범위(1.2m)보다 넉넉하게 잡는다 */
+  static OVER_D = 2.4;
+  /** 뛰어넘은 것으로 볼 때 부딪히는 좌우 범위에 더하는 여유(m) */
+  static OVER_X = 0.8;
 
   /**
    * 돌진하는 동물이 길을 가로지르며 돌아다니는 구역을 반환한다.
@@ -1015,7 +1032,13 @@ export class Dasher implements Entity {
         else this.state = 'done';
       }
     }
-    if (crossed(p, this.dNow, 1.2) && Math.abs(p.x - this.x) < this.reach && p.y < this.height && p.fall(FALL_HEAVY)) {
+    if (this.jumped) return;
+    const side = Math.abs(p.x - this.x);
+    if (p.y >= CLEAR_ANIMAL && crossed(p, this.dNow, Dasher.OVER_D) && side < this.reach + Dasher.OVER_X) {
+      // 한 번 뛰어넘은 동물은 더 덮치지 않고 달리던 길로 물러난다. 플레이어와 나란히 달리다가 착지하는 순간 다시 걸리는 일을 막는다.
+      this.jumped = true;
+      this.legs = 0;
+    } else if (crossed(p, this.dNow, 1.2) && side < this.reach && p.y < CLEAR_ANIMAL && p.fall(FALL_HEAVY)) {
       c.animalHit();
       c.toast(this.hitMsg);
     }
@@ -1030,7 +1053,7 @@ export class Dasher implements Entity {
  * @return {Dasher} 호랑이
  */
 export function makeTigerEnemy(c: Ctx, d: number): Dasher {
-  return new Dasher(c, d, makeTiger(), 30, 1.3, 0.75, '어흥!', '호랑이에게 치였다!');
+  return new Dasher(c, d, makeTiger(), 30, 1.3, '어흥!', '호랑이에게 치였다!');
 }
 
 /**
@@ -1041,10 +1064,10 @@ export function makeTigerEnemy(c: Ctx, d: number): Dasher {
  * @return {Dasher} 고양이
  */
 export function makeCatEnemy(c: Ctx, d: number): Dasher {
-  return new Dasher(c, d, makeCat(), 45, 0.8, 0.5, '야옹!', '고양이에게 걸려 넘어졌다!');
+  return new Dasher(c, d, makeCat(), 45, 0.8, '야옹!', '고양이에게 걸려 넘어졌다!');
 }
 
-/** 리용길을 향해 빠르게 달려와 들이받는 동물 (고라니, 멧돼지) */
+/** 리용길을 향해 빠르게 달려와 들이받는 동물 (고라니, 멧돼지). 옆으로 비키거나 점프로 넘는다 */
 export class Charger implements Entity {
   private state: 'wait' | 'run' | 'done' = 'wait';
   private x: number;
@@ -1107,7 +1130,8 @@ export class Charger implements Entity {
     this.g.position.set(this.x, Math.abs(Math.sin(c.time * 22)) * 0.2, -this.dNow);
     runQuad(this.g, c.time * 24);
     if (this.dNow < p.d - 20) this.state = 'done';
-    if (crossed(p, this.dNow, 1.5) && Math.abs(p.x - this.x) < this.reach && p.y < 0.9 && p.fall(FALL_HEAVY)) {
+    // 옆으로 비키지 않아도 제자리에서 뛰어넘을 수 있다.
+    if (crossed(p, this.dNow, 1.5) && Math.abs(p.x - this.x) < this.reach && p.y < CLEAR_ANIMAL && p.fall(FALL_HEAVY)) {
       c.animalHit();
       c.shake(0.3);
       c.toast(this.hitMsg);
@@ -1128,7 +1152,7 @@ export function makeDeerEnemy(c: Ctx, d: number, x: number): Charger {
 }
 
 /**
- * 멧돼지를 만든다. 고라니보다 느리지만 달리면서 플레이어 쪽으로 방향을 튼다.
+ * 멧돼지를 만든다. 고라니보다 느리지만 달리면서 플레이어 쪽으로 방향을 천천히 튼다.
  * @author heojeehaeng(claude)
  * @param {Ctx} c 게임 창구
  * @param {number} d 처음 서 있는 거리(m)
@@ -1136,7 +1160,7 @@ export function makeDeerEnemy(c: Ctx, d: number, x: number): Charger {
  * @return {Charger} 멧돼지
  */
 export function makeBoarEnemy(c: Ctx, d: number, x: number): Charger {
-  return new Charger(c, d, x, makeBoar(), 24, 1.1, 1.1, '멧돼지다!', '멧돼지에게 들이받혔다!');
+  return new Charger(c, d, x, makeBoar(), 24, 0.6, 1.1, '멧돼지다!', '멧돼지에게 들이받혔다!');
 }
 
 /** 목을 360도로 휘두르는 기린. 휘두르는 방향과 빠르기, 궤적은 매번 무작위다. 슬라이드로 지나간다 */
@@ -1405,22 +1429,34 @@ export class Limo implements Entity {
   }
 }
 
-/** 엄지를 치켜들고 깡충깡충 뛰어오는 육군 마스코트 '굳건이' */
+/** 엄지를 치켜들고 긴 다리로 성큼성큼 걸어오는 육군 마스코트 '굳건이'. 곰처럼 다리 사이로 몸을 낮춰 지나간다 */
 export class Mascot implements Entity {
   private g = makeMascot();
   private phase = rand(0, 6);
-  private rate = rand(1.6, 2.6);
-  private x = 0;
+  private x: number;
+  private d0: number;
+  private x0: number;
+
+  /** 플레이어가 이 거리(m) 안으로 오면 걸어오기 시작한다 */
+  static WALK_FROM = 130;
+  /** 걸어오는 속도(m/s) */
+  static WALK = 5;
+  /** 옆으로 따라붙는 속도(m/s) */
+  static SIDE = 5;
+  /** 벌린 다리가 막는 좌우 범위(m). 이 안에서는 몸을 낮춰야 지나간다 */
+  static REACH = 2.0;
 
   /**
    * 마스코트를 만들어 길 앞쪽에 놓는다.
    * @author heojeehaeng(claude)
    * @param {Ctx} c 게임 창구
    * @param {number} d 처음 서 있는 거리(m)
+   * @param {number} x 처음 서 있는 x
    */
-  constructor(c: Ctx, public d: number) {
-    this.g.rotation.y = Math.PI;
-    this.g.position.set(0, 0, -d);
+  constructor(c: Ctx, public d: number, x = 0) {
+    this.d0 = d;
+    this.x = this.x0 = x;
+    this.g.position.set(x, 0, -d);
     c.add(this.g, d, true);
   }
 
@@ -1431,18 +1467,43 @@ export class Mascot implements Entity {
    * @return {Zone} 동작 구역
    */
   static zone(d: number): Zone {
-    const [near, far] = meet(d, 5, 130);
-    return { from: near - 0.8, to: far + 0.8, need: 'sweep' };
+    const [near, far] = meet(d, Mascot.WALK, Mascot.WALK_FROM);
+    // 슬라이드로 빨라진 채 들어오면 조금 더 뒤에서 만나므로 곰처럼 뒤쪽 여유를 1m 더 둔다.
+    return { from: near - 1.6, to: far + 2.6, need: 'low' };
   }
 
   update(dt: number, c: Ctx): void {
     const p = c.player;
-    if (this.d - p.d < 130) this.d -= 5 * dt;
-    // 깡충깡충 뛰면서 길을 좌우로 크게 오간다.
-    this.x = Math.sin(c.time * this.rate + this.phase) * 3.2;
-    this.g.position.set(this.x, Math.abs(Math.sin(c.time * 7)) * 0.5, -this.d);
-    this.g.visible = this.d > p.d - 20 && this.d < p.d + 200;
-    if (crossed(p, this.d, 0.8) && Math.abs(p.x - this.x) < 1.15 && p.y < 1.6 && p.fall(FALL_LIGHT)) c.toast('굳건이: "엄지 척!"');
+    const dd = this.d - p.d;
+    this.g.visible = dd > -20 && dd < 200;
+    const walking = dd < Mascot.WALK_FROM && dd > -3 && p.state === 'run';
+    if (walking) {
+      this.d -= Mascot.WALK * dt;
+      // 옆으로 비켜 지나가지 못하도록 플레이어가 달리는 줄을 따라붙는다.
+      const gap = p.x - this.x;
+      this.x += Math.sign(gap) * Math.min(Mascot.SIDE * dt, Math.abs(gap));
+    }
+    // 긴 다리를 번갈아 내디디고, 디딜 때마다 윗몸이 살짝 출렁인다.
+    const stride = walking ? Math.sin(c.time * 5 + this.phase) * 0.2 : 0;
+    const [legL, legR] = this.g.userData.legs as THREE.Group[];
+    legL.rotation.x = stride;
+    legR.rotation.x = -stride;
+    (this.g.userData.body as THREE.Group).rotation.z = stride * 0.25;
+    const guide = this.g.userData.guide as THREE.Mesh;
+    guide.visible = dd < 55 && dd > -3;
+    // 바닥 화살표가 다리 사이를 향해 흐르게 한다.
+    (guide.material as THREE.MeshBasicMaterial).map!.offset.y = 1 - ((c.time * 1.4) % 1);
+    this.g.position.set(this.x, 0, -this.d);
+    // 슬라이드하거나 엎드리면 벌린 다리 사이로 빠져나간다. 다리가 길어 점프로는 넘을 수 없다.
+    if (!p.low && crossed(p, this.d, 1.0) && Math.abs(p.x - this.x) < Mascot.REACH && p.y < 2.0 && p.fall(FALL_LIGHT)) {
+      c.toast('굳건이: "엄지 척!"');
+    }
+  }
+
+  reset(): void {
+    this.d = this.d0;
+    this.x = this.x0;
+    this.g.position.set(this.x, 0, -this.d);
   }
 }
 
