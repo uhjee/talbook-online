@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { CHECKPOINTS, COURSE_LEN, FONT_DISPLAY, STAGES, stagePos } from './config';
+import { CHECKPOINTS, COURSE_LEN, FONT_DISPLAY, PLAZA, STAGES, stagePos } from './config';
 import {
   Barrier, Bear, Cart, Crowd, Ctx, Dasher, Entity, Giant, Giraffe, Grabber, Hint, Limo, makeBoarEnemy, makeCatEnemy,
   LDancer, makeDeerEnemy, makeTigerEnemy, Mascot, Mine, PhoneWalker, pickTaunt, Searchlight, Shooter, Stalactite, Truck, Watcher,
 } from './entities';
 import { box, makeCutout, makeDeer, makePerson, makeSign, mat, PersonOpts } from './models';
+import { buildLandmarks } from './landmarks';
 import { hasProps } from './props';
 import { Party } from './party';
 import { buildScenery } from './scenery';
@@ -460,6 +461,7 @@ export function buildDecor(c: Ctx): Decor {
   mineDecor(put);
   cityDecor(put);
   dmzDecor(put);
+  buildLandmarks(put);
   for (const cp of CHECKPOINTS) {
     if (cp === 0) continue;
     const flag = new THREE.Group();
@@ -569,13 +571,14 @@ function cityDecor(put: Put): void {
   );
   for (let i = 0, d = from + 18; d < to - 10; i++, d += 38) {
     const s = i % 2 ? 1 : -1;
-    if (s < 0 && Math.abs(d - hotelAt) < 30) continue;
+    // 광장 안에는 합판 건물을 세우지 않는다.
+    if ((s < 0 && Math.abs(d - hotelAt) < 30) || (d > PLAZA.from - 8 && d < PLAZA.to + 4)) continue;
     put(apts[i % apts.length].clone(), s * 13.5, d, s < 0 ? 0.25 : -0.25);
     // 합판 건물이 쓰러지지 않게 옆에서 붙들고 있는 사람
     if (i % 3 === 0) put(makePerson({ shirt: 0x556b7a, pants: 0x333333 }), s * 8.6, d + 0.4, s * -1.2);
   }
   put(makeSign('우리는 행복하다\n(웃으시오)', 4.4, 1.9, '#b3261e', '#fff4c2', 2.6), 6.6, from + 54, -0.25);
-  put(makeSign('우리는 행복하다\n(웃으시오)', 4.4, 1.9, '#b3261e', '#fff4c2', 2.6), -6.8, stagePos('city', 0.6), 0.25);
+  put(makeSign('우리는 행복하다\n(웃으시오)', 4.4, 1.9, '#b3261e', '#fff4c2', 2.6), -6.8, stagePos('city', 0.47), 0.25);
   // 음식이 전부 모형인 상점
   const shop = new THREE.Group();
   shop.add(box(3.2, 1, 1.2, 0x9a7b52, 0, 0.5, 0));

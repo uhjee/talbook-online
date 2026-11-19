@@ -694,7 +694,7 @@ export class Shooter implements Entity {
     this.man.position.set(this.sx, 0, -d);
     this.man.add(box(0.08, 0.08, 1.0, 0x222222, 0.3, 1.05, -0.5));
     this.line = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 1), basic(WARN, 0.85));
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 20), basic(WARN, 0.85));
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.8, 28), basic(WARN, 0.9));
     this.ring.rotation.x = -Math.PI / 2;
     this.line.visible = this.ring.visible = false;
     c.add(this.man, d);
@@ -713,6 +713,10 @@ export class Shooter implements Entity {
   static HIT_X = 0.8;
   /** 쏘는 순간 표적 중심에서 앞뒤로 이 거리(m) 안에 있으면 맞는다. 달리는 속도가 조금 달라져도 맞도록 좌우보다 길다 */
   static HIT_D = 2.4;
+  /** 표적이 처음 뜰 때의 색 */
+  static EARLY = new THREE.Color(0xffe14d);
+  /** 표적이 다 조여들었을 때의 색 */
+  static HOT = new THREE.Color(WARN);
   private bubble?: THREE.Mesh;
   private said = false;
 
@@ -740,9 +744,11 @@ export class Shooter implements Entity {
       return;
     }
     (this.line.material as THREE.MeshBasicMaterial).opacity = 0.5 + 0.4 * Math.sin(c.time * 30);
-    // 표적이 크게 떴다가 맞는 범위 크기로 조여들어, 다 조여드는 순간이 쏘는 순간임을 알린다.
-    const k = 1 + 1.2 * Math.max(0, this.t / Shooter.AIM);
-    this.ring.scale.set(k, k * Shooter.HIT_D / Shooter.HIT_X, 1);
+    // 표적이 크게 떴다가 조여들어, 다 조여드는 순간이 쏘는 순간임을 알린다. 조여들수록 노란색에서 경고색으로 붉어진다.
+    const left = Math.max(0, this.t / Shooter.AIM);
+    // 바닥에 누운 원으로 보이도록 가로세로를 같은 비율로만 줄인다.
+    this.ring.scale.setScalar(1 + 1.2 * left);
+    (this.ring.material as THREE.MeshBasicMaterial).color.copy(Shooter.HOT).lerp(Shooter.EARLY, left);
     if (this.t > 0) return;
     this.aiming = false;
     this.t = this.cooldown;

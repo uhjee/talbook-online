@@ -365,6 +365,35 @@ function wrapBubble(text: string): string[] {
 }
 
 /**
+ * 캔버스에 그린 그림을 받침 없는 평평한 판으로 만든다. 벽에 거는 액자, 건물에 붙이는 그림, 현수막에 쓴다.
+ * @author heojeehaeng(claude)
+ * @param {Function} draw 캔버스에 그림을 그리는 함수 (g, 가로px, 세로px)
+ * @param {number} w 판 가로(m)
+ * @param {number} h 판 세로(m)
+ * @param {string} text 그림 안에 쓰는 글. 글이 있으면 웹 글꼴이 도착한 뒤에 한 번 더 그린다
+ * @param {number} px 캔버스 가로(px)
+ * @return {THREE.Mesh} 판. 그림은 +z 방향을 향하고 원점은 판의 가운데다
+ */
+export function makePanel(
+  draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number, text = '', px = 256,
+): THREE.Mesh {
+  const cv = document.createElement('canvas');
+  cv.width = px;
+  cv.height = Math.round((px * h) / w);
+  const ctx = cv.getContext('2d')!;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  paintText(tex, `20px ${FONT_DISPLAY}`, text, () => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    draw(ctx, cv.width, cv.height);
+  });
+  return new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+  );
+}
+
+/**
  * 캔버스에 그린 그림을 얇은 입간판으로 만든다. 뒤에 받침 각목을 붙인다.
  * @author heojeehaeng(claude)
  * @param {Function} draw 캔버스에 그림을 그리는 함수 (g, 가로px, 세로px)
@@ -376,21 +405,8 @@ function wrapBubble(text: string): string[] {
 export function makeCutout(
   draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number, text = '',
 ): THREE.Group {
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = Math.round((256 * h) / w);
-  const ctx = cv.getContext('2d')!;
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  paintText(tex, `20px ${FONT_DISPLAY}`, text, () => {
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    draw(ctx, cv.width, cv.height);
-  });
   const g = new THREE.Group();
-  const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, h),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-  );
+  const plane = makePanel(draw, w, h, text);
   plane.position.y = h / 2;
   g.add(plane);
   for (const sx of [-w * 0.25, w * 0.25]) {

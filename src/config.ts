@@ -79,6 +79,28 @@ export const STAGES: Stage[] = [
 /** 코스 전체 길이(m) */
 export const COURSE_LEN = STAGES[STAGES.length - 1].to;
 
+/**
+ * 시내의 원수님 광장이 차지하는 거리 범위(m). 이 안에는 길가 건물과 가로수를 세우지 않는다.
+ * 배경 묶음(50m)의 경계에 맞춰야 광장 바닥이 묶음 단위로 깔린다.
+ */
+export const PLAZA = { from: STAGES[1].from + 650, to: STAGES[1].from + 800 };
+
+export interface Depot {
+  /** 건물 가운데가 놓이는 거리(m) */
+  d: number;
+  /** -1이면 길 왼쪽, 1이면 오른쪽 */
+  side: number;
+  /** store는 위장 무늬 창고, bunker는 흙을 덮은 탄약고 */
+  kind: 'store' | 'bunker';
+}
+
+/** SS사단 울타리 너머에 세우는 창고와 탄약고의 자리. 이 둘레에는 다른 배경 소품을 놓지 않는다 */
+export const DEPOTS: Depot[] = [90, 190, 300, 410, 520, 630, 740, 830].map((off, i) => ({
+  d: STAGES[3].from + off,
+  side: i % 2 ? 1 : -1,
+  kind: i % 4 === 0 || i % 4 === 3 ? 'store' : 'bunker',
+}));
+
 /** 구간 시작점과 구간 안의 일정 간격마다 체크포인트를 둔다 */
 export const CHECKPOINTS: number[] = STAGES.flatMap((s) => {
   const list = [s.from];

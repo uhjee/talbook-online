@@ -1,4 +1,4 @@
-import { STAGES } from './config';
+import { DEPOTS, PLAZA, STAGES } from './config';
 import { Ctx } from './entities';
 import { Scatter } from './props';
 
@@ -10,7 +10,7 @@ const TAU = Math.PI * 2;
  * @param {number} seed 시드
  * @return {Function} 0 이상 1 미만의 난수를 내는 함수
  */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -30,6 +30,29 @@ function rng(seed: number): () => number {
  */
 function pick<T>(rnd: () => number, list: T[]): T {
   return list[Math.floor(rnd() * list.length)];
+}
+
+/**
+ * 시내의 광장 안이거나 그 둘레인지 반환한다.
+ * @author heojeehaeng(claude)
+ * @param {number} d 거리(m)
+ * @param {number} pad 광장 앞뒤로 더 비워 둘 거리(m)
+ * @return {boolean} 광장 자리 여부
+ */
+function inPlaza(d: number, pad: number): boolean {
+  return d > PLAZA.from - pad && d < PLAZA.to + pad;
+}
+
+/**
+ * SS사단의 창고나 탄약고가 서는 자리인지 반환한다.
+ * @author heojeehaeng(claude)
+ * @param {number} side -1이면 길 왼쪽, 1이면 오른쪽
+ * @param {number} d 거리(m)
+ * @param {number} pad 건물 가운데에서 앞뒤로 비워 둘 거리(m)
+ * @return {boolean} 건물 자리 여부
+ */
+function nearDepot(side: number, d: number, pad: number): boolean {
+  return DEPOTS.some((p) => p.side === side && Math.abs(p.d - d) < pad);
 }
 
 /**
@@ -96,18 +119,22 @@ function cityScenery(s: Scatter): void {
   for (const side of [-1, 1]) {
     // 길에서 가까운 건물 줄: 정면이 길을 보게 돌려 세운다.
     for (let d = from + 14; d < to - 6; d += 13 + rnd() * 6) {
-      if (side < 0 && Math.abs(d - hotelAt) < 26) continue;
+      // 광장 안에는 길가 건물을 세우지 않는다.
+      if ((side < 0 && Math.abs(d - hotelAt) < 26) || inPlaza(d, 8)) continue;
       const tall = rnd() < 0.12;
       const key = tall ? pick(rnd, ['commercial/building-skyscraper-a', 'commercial/building-skyscraper-c']) : pick(rnd, near);
       s.put(key, side * (24 + rnd() * 5), d, { h: tall ? 24 + rnd() * 8 : 10 + rnd() * 6, ry: -side * Math.PI * 0.5, tint: pick(rnd, drab) });
     }
     // 먼 건물 줄: 단순한 모델을 촘촘히 세워 스카이라인을 만든다.
     for (let d = from + 4; d < to; d += 7 + rnd() * 5) {
-      s.put(pick(rnd, far), side * (42 + rnd() * 30), d, { h: 16 + rnd() * 24, ry: Math.floor(rnd() * 4) * Math.PI * 0.5, tint: pick(rnd, drab) });
+      const x = 42 + rnd() * 30;
+      // 광장 바닥과 주석단 건물이 놓이는 자리에서는 먼 건물도 그 뒤로 물린다.
+      s.put(pick(rnd, far), side * (inPlaza(d, 10) ? Math.max(x, 60) : x), d, { h: 16 + rnd() * 24, ry: Math.floor(rnd() * 4) * Math.PI * 0.5, tint: pick(rnd, drab) });
     }
     // 공장 굴뚝과 급수탑
     for (let d = from + 60 + rnd() * 40; d < to - 30; d += 130 + rnd() * 70) {
       const x = side * (34 + rnd() * 6);
+      if (inPlaza(d, 14)) continue;
       if (rnd() < 0.6) {
         s.put('industrial/chimney-large', x, d, { h: 24 + rnd() * 8, tint: 0xc9c2b8 });
         s.put('industrial/building-a', x + side * 3, d + 9, { h: 9, ry: -side * Math.PI * 0.5, tint: 0xc4c0b8 });
@@ -115,7 +142,7 @@ function cityScenery(s: Scatter): void {
     }
     // 가로수: 촛불 가로등(55m 간격) 사이에 선다.
     for (let d = from + 38; d < to - 20; d += 27.5) {
-      if (Math.abs(d - hotelAt) < 12 && side < 0) continue;
+      if ((Math.abs(d - hotelAt) < 12 && side < 0) || inPlaza(d, 2)) continue;
       s.put('nature/tree_default', side * 9.8, d + (side > 0 ? 6 : 0), { h: 4.2 + rnd() * 1.2, ry: rnd() * TAU, tint: 0xd6dcc4 });
     }
   }
@@ -126,7 +153,7 @@ function cityScenery(s: Scatter): void {
 }
 
 /**
- * 국경과 DMZ에 소나무 숲, 덤불과 풀, 바위, 철책, 북한군 천막, 먼 능선을 놓는다.
+ * 국경과 DMZ에 소나무 숲, 덤불과 풀, 바위, 철책, 북한군 천막을 놓는다. 양옆의 산줄기는 landmarks.ts에서 따로 세운다.
  * 길 가까이에는 낮은 것만 놓아 옆에서 뛰어드는 동물이 가려지지 않게 한다.
  * @author heojeehaeng(claude)
  * @param {Scatter} s 배치 기록
@@ -164,12 +191,6 @@ function dmzScenery(s: Scatter): void {
   for (let i = 0; i < 70; i++) {
     const d = from + 12 + rnd() * (len - 16);
     s.put(rnd() < 0.5 ? 'nature/rock_tallB' : 'nature/rock_largeB', (rnd() < 0.5 ? -1 : 1) * (12 + rnd() * 22), d, { h: 1.6 + rnd() * 2.2, ry: rnd() * TAU });
-  }
-  // 먼 능선: 납작한 바위를 크게 키워 숲 너머의 산처럼 보이게 한다.
-  for (const side of [-1, 1]) {
-    for (let d = from; d < to; d += 34 + rnd() * 18) {
-      s.put('nature/rock_largeA', side * (88 + rnd() * 16), d, { w: 44 + rnd() * 18, ry: rnd() * TAU, tint: 0xa7bfae });
-    }
   }
   // 국경 철책: 길 위의 개구멍 장애물에서 양옆으로 이어진다.
   fenceRow(s, from + 7.6, 0x98a8ac);
@@ -211,6 +232,8 @@ function ssScenery(s: Scatter): void {
     for (let d = from + 20 + rnd() * 10; d < to - 20; d += 16 + rnd() * 14) {
       const x = side * (16.5 + rnd() * 6);
       const r = rnd();
+      // 창고와 탄약고가 서는 자리는 비워 둔다.
+      if (nearDepot(side, d, 17)) continue;
       if (r < 0.28) {
         s.put(rnd() < 0.5 ? 'industrial/shipping-container-a' : 'industrial/shipping-container-b', x, d, { h: 2.8, ry: rnd() < 0.5 ? 0 : Math.PI * 0.5, tint: pick(rnd, army) });
       } else if (r < 0.46) s.put('survival/structure-metal', x, d, { h: 3.2, ry: -side * Math.PI * 0.5, tint: pick(rnd, army) });
@@ -224,11 +247,14 @@ function ssScenery(s: Scatter): void {
     // 창고와 급수탑은 더 뒤쪽에 듬성듬성 세운다.
     for (let d = from + 40 + rnd() * 30; d < to - 30; d += 60 + rnd() * 40) {
       const x = side * (30 + rnd() * 8);
+      if (nearDepot(side, d, 18)) continue;
       if (rnd() < 0.75) s.put(rnd() < 0.5 ? 'industrial/building-h' : 'industrial/building-p', x, d, { h: 6.5 + rnd() * 1.5, ry: -side * Math.PI * 0.5, tint: pick(rnd, army) });
       else s.put('industrial/water-tower', x, d, { h: 12, tint: 0xb0b4a8 });
     }
     for (let d = from + 10; d < to; d += 9 + rnd() * 12) {
-      s.put(pick(rnd, ['nature/tree_pineDefaultA', 'nature/tree_pineTallA', 'nature/tree_pineRoundC']), side * (24 + rnd() * 26), d, { h: 6 + rnd() * 4, ry: rnd() * TAU, tint: 0xd2e6c4 });
+      const x = 24 + rnd() * 26;
+      // 창고 지붕이나 탄약고 둔덕을 뚫고 자라지 않게 그 자리의 소나무는 뒤로 물린다.
+      s.put(pick(rnd, ['nature/tree_pineDefaultA', 'nature/tree_pineTallA', 'nature/tree_pineRoundC']), side * (nearDepot(side, d, 13) ? Math.max(x, 38) : x), d, { h: 6 + rnd() * 4, ry: rnd() * TAU, tint: 0xd2e6c4 });
     }
   }
   // 생활관 앞에 쌓아 둔 보급품
