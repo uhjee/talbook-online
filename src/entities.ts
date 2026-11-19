@@ -656,8 +656,9 @@ export class Watcher implements Entity {
     const rx = p.x - this.wx;
     const rz = -p.d + this.d;
     const dist = Math.hypot(rx, rz);
+    // 기어가는 동안은 물론, 슬라이드로 미끄러지는 동안에도 몸이 낮아 들키지 않는다. 시야 안에서 슬라이드가 끝나면 그때부터 들킨다.
     // 넘어져 있는 동안에는 기어서 피할 방법이 없으므로 발각하지 않는다.
-    if (dist > this.range || p.hiding || c.inCrowd || p.state === 'fall') return;
+    if (dist > this.range || p.low || c.inCrowd || p.state === 'fall') return;
     let diff = Math.atan2(-rz, rx) - a;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     if (Math.abs(diff) < Watcher.HALF) c.detect('발각!', WATCH_GRACE);

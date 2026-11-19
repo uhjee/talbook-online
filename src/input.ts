@@ -172,10 +172,12 @@ export class Input {
     if (e.pointerId !== this.pid) return;
     const dx = e.clientX - this.sx;
     const dy = e.clientY - this.sy;
-    if (Math.hypot(dx, dy) > 12) this.moved = true;
     // 화면 폭 전체를 끌면 길 폭보다 조금 더 움직이도록 환산한다.
     this.drag += ((e.clientX - this.lx) / this.el.clientWidth) * 11;
     this.lx = e.clientX;
+    // 길게 눌러 기어가기가 시작된 뒤에는 손가락을 끌어도 기어가기를 풀지 않고 좌우로만 옮긴다. 위아래로 끌어도 점프나 슬라이드로 보지 않는다.
+    if (!this.moved && performance.now() - this.st > TOUCH_HOLD_MS) return;
+    if (Math.hypot(dx, dy) > 12) this.moved = true;
     if (!this.swiped && Math.abs(dy) > SWIPE_PX && Math.abs(dy) > Math.abs(dx) * 1.2) {
       this.swiped = true;
       if (dy < 0) this.jumpQ = true;
