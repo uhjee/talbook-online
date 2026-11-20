@@ -654,7 +654,8 @@ body {
   backdrop-filter: blur(3px);
   overflow-y: auto;
 }
-#rank {
+#rank,
+#howto {
   background: rgba(12, 14, 22, 0.82);
 }
 .panel {
@@ -742,42 +743,9 @@ h2.brush {
 .poster-form {
   padding: 18px 20px 22px;
 }
-/* 시작 화면: 포스터와 조작법을 넓은 화면에서는 나란히, 좁은 화면에서는 위아래로 놓는다.
-   가운데 정렬을 바깥 여백으로 해서, 화면보다 길어져도 맨 위가 잘리지 않고 끝까지 내려 볼 수 있다. */
-.menu-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  width: 100%;
-  margin: auto;
-}
-@media (min-width: 880px) {
-  .menu-wrap {
-    flex-direction: row;
-    justify-content: center;
-    gap: 26px;
-  }
-}
-/* 위아래로 놓일 때는 포스터 그림을 낮춰, 조작법이 되도록 한 화면 안에 들어오게 한다. */
-@media (max-width: 879px) {
-  .poster-art {
-    height: clamp(120px, 21vh, 270px);
-  }
-  .poster-form {
-    padding: 14px 20px 16px;
-  }
-  .menu-wrap {
-    gap: 14px;
-  }
-  .howto ul {
-    gap: 6px;
-  }
-}
-
-/* 조작법: 쓰는 장치에 맞는 쪽만 보인다. 실제 입력이 들어오면 body의 표시가 장치 판별보다 우선한다. */
+/* 조작법 팝업: 쓰는 장치에 맞는 쪽만 보인다. 실제 입력이 들어오면 body의 표시가 장치 판별보다 우선한다. */
 .panel.howto {
-  padding: 0 16px 14px;
+  padding: 0 16px 18px;
   text-align: left;
 }
 .howto h2 {

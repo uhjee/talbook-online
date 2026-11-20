@@ -333,6 +333,15 @@ class Game implements Ctx {
     $('tab-all').addEventListener('click', () => showRanking(false));
     $('tab-today').addEventListener('click', () => showRanking(true));
     $('btn-rank-close').addEventListener('click', () => $('rank').classList.add('hidden'));
+    $('btn-howto').addEventListener('click', () => $('howto').classList.remove('hidden'));
+    $('btn-howto-close').addEventListener('click', () => $('howto').classList.add('hidden'));
+    // 팝업 바깥의 어두운 자리를 눌러도 닫힌다.
+    $('howto').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) $('howto').classList.add('hidden');
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape') $('howto').classList.add('hidden');
+    });
     $('btn-share').addEventListener('click', () => this.result && shareCard(this.result, false));
     $('btn-save').addEventListener('click', () => this.result && shareCard(this.result, true));
     $('btn-retry').addEventListener('click', () => this.again());
