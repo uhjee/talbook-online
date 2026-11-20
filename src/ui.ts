@@ -127,11 +127,25 @@ export class Hud {
    */
   constructor() {
     window.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'touch') this.touch = true;
+      if (e.pointerType === 'touch') this.setTouch(true);
     });
-    window.addEventListener('keydown', () => {
-      this.touch = false;
+    window.addEventListener('keydown', (e) => {
+      // 휴대폰에서 이름을 적을 때 뜨는 화면 키보드도 키 입력을 내므로, 입력 칸에 적는 것은 키보드를 쓴다는 근거로 삼지 않는다.
+      if (e.target instanceof HTMLInputElement) return;
+      this.setTouch(false);
     });
+  }
+
+  /**
+   * 지금 쓰는 입력 장치를 기록하고, 시작 화면의 조작법도 그 장치에 맞는 쪽이 보이게 한다.
+   * 처음에는 스타일의 장치 판별(pointer: coarse)을 따르고, 실제 입력이 들어온 뒤부터 이 표시가 우선한다.
+   * @author heojeehaeng(claude)
+   * @param {boolean} touch true면 터치, false면 키보드
+   */
+  private setTouch(touch: boolean): void {
+    this.touch = touch;
+    document.body.classList.toggle('use-touch', touch);
+    document.body.classList.toggle('use-keys', !touch);
   }
 
   /**

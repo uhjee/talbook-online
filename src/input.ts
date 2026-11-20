@@ -5,6 +5,8 @@ const TOUCH_HOLD_MS = 320;
 const SWIPE_PX = 40;
 /** 이 시간(ms) 안에 화면을 두 번 두드리면 부스터로 본다 */
 const DOUBLE_TAP_MS = 280;
+/** 방향키 대신 쓸 수 있는 글자 키 */
+const WASD: Record<string, string> = { KeyA: 'ArrowLeft', KeyD: 'ArrowRight', KeyS: 'ArrowDown', KeyW: 'ArrowUp' };
 
 export class Input {
   enabled = false;
@@ -141,7 +143,8 @@ export class Input {
 
   private onKey(e: KeyboardEvent, down: boolean): void {
     if (!this.enabled) return;
-    const k = e.code;
+    // W A S D는 같은 방향의 방향키로 바꿔 읽는다.
+    const k = WASD[e.code] ?? e.code;
     if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Space') return;
     e.preventDefault();
     if (k === 'ArrowLeft') this.left = down;

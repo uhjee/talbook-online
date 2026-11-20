@@ -478,7 +478,8 @@ body {
   margin: 0;
   font-size: 12px;
 }
-#keys .cap {
+#keys .cap,
+.howto .cap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -492,11 +493,13 @@ body {
   font-size: 15px;
   font-weight: 900;
 }
-#keys .cap.wide {
+#keys .cap.wide,
+.howto .cap.wide {
   min-width: 68px;
   font-size: 12px;
 }
-#keys .cap.hold {
+#keys .cap.hold,
+.howto .cap.hold {
   animation: key-hold 1.6s infinite;
 }
 #keys .k.on {
@@ -511,7 +514,8 @@ body {
 #keys .k.on .ges {
   background: var(--yellow);
 }
-#keys .ges {
+#keys .ges,
+.howto .ges {
   position: relative;
   width: 40px;
   height: 40px;
@@ -519,7 +523,8 @@ body {
   border-radius: 10px;
   background: #fff;
 }
-#keys .ges b {
+#keys .ges b,
+.howto .ges b {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -529,19 +534,24 @@ body {
   border-radius: 50%;
   background: var(--ink);
 }
-#keys .ges-move b {
+#keys .ges-move b,
+.howto .ges-move b {
   animation: ges-move 1.4s ease-in-out infinite;
 }
-#keys .ges-up b {
+#keys .ges-up b,
+.howto .ges-up b {
   animation: ges-up 1.2s ease-out infinite;
 }
-#keys .ges-down b {
+#keys .ges-down b,
+.howto .ges-down b {
   animation: ges-down 1.2s ease-out infinite;
 }
-#keys .ges-hold b {
+#keys .ges-hold b,
+.howto .ges-hold b {
   animation: ges-hold 1.8s linear infinite;
 }
-#keys .ges-tap b {
+#keys .ges-tap b,
+.howto .ges-tap b {
   animation: ges-tap 1.2s linear infinite;
 }
 @keyframes key-hold {
@@ -732,6 +742,141 @@ h2.brush {
 .poster-form {
   padding: 18px 20px 22px;
 }
+/* 시작 화면: 포스터와 조작법을 넓은 화면에서는 나란히, 좁은 화면에서는 위아래로 놓는다.
+   가운데 정렬을 바깥 여백으로 해서, 화면보다 길어져도 맨 위가 잘리지 않고 끝까지 내려 볼 수 있다. */
+.menu-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  margin: auto;
+}
+@media (min-width: 880px) {
+  .menu-wrap {
+    flex-direction: row;
+    justify-content: center;
+    gap: 26px;
+  }
+}
+/* 위아래로 놓일 때는 포스터 그림을 낮춰, 조작법이 되도록 한 화면 안에 들어오게 한다. */
+@media (max-width: 879px) {
+  .poster-art {
+    height: clamp(120px, 21vh, 270px);
+  }
+  .poster-form {
+    padding: 14px 20px 16px;
+  }
+  .menu-wrap {
+    gap: 14px;
+  }
+  .howto ul {
+    gap: 6px;
+  }
+}
+
+/* 조작법: 쓰는 장치에 맞는 쪽만 보인다. 실제 입력이 들어오면 body의 표시가 장치 판별보다 우선한다. */
+.panel.howto {
+  padding: 0 16px 14px;
+  text-align: left;
+}
+.howto h2 {
+  margin: 0 -16px 10px;
+  padding: 7px 12px 6px;
+  border-bottom: 3px solid var(--ink);
+  background: var(--navy);
+  color: var(--paper);
+  font-size: 24px;
+  text-align: center;
+}
+.howto ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.howto li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.howto .how {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 78px;
+}
+.howto .for-touch .how {
+  width: 42px;
+}
+.howto .how em {
+  font-style: normal;
+  font-weight: 800;
+  font-size: 14px;
+}
+.howto li b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 18px;
+}
+.howto li i {
+  margin-left: 7px;
+  padding: 1px 7px 2px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--yellow);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.howto li p {
+  margin: 2px 0 0;
+  color: var(--mute);
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.howto-note {
+  margin: 11px 0 0;
+  padding-top: 9px;
+  border-top: 2px dashed rgba(23, 25, 34, 0.25);
+  color: var(--mute);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
+.howto .for-touch {
+  display: none;
+}
+@media (pointer: coarse) {
+  .howto .for-pc {
+    display: none;
+  }
+  .howto ul.for-touch {
+    display: grid;
+  }
+}
+body.use-touch .howto .for-pc {
+  display: none;
+}
+body.use-touch .howto ul.for-touch {
+  display: grid;
+}
+body.use-keys .howto ul.for-pc {
+  display: grid;
+}
+body.use-keys .howto p.for-pc {
+  display: block;
+}
+body.use-keys .howto .for-touch {
+  display: none;
+}
+
 .sub {
   margin: 6px 0 12px;
   color: var(--mute);
